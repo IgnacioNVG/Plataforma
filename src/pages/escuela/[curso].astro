@@ -1,0 +1,98 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+
+export function getStaticPaths() {
+  return [
+    { params: { curso: 'historia-movimiento-obrero' } },
+  ];
+}
+---
+
+<AppLayout title="Curso: Historia del Movimiento Obrero">
+  <div class="flex flex-col lg:flex-row gap-8 h-full">
+    
+    <!-- Video / Contenido Principal -->
+    <div class="flex-1 flex flex-col min-h-0">
+      <div class="mb-4">
+        <a href="/escuela" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2">
+          ← Volver a la Escuela
+        </a>
+      </div>
+      
+      <!-- Video Player Placeholder (Brutalista) -->
+      <div class="w-full aspect-video bg-[var(--color-foreground)] border-4 border-[var(--color-foreground)] flex items-center justify-center relative group">
+        <div class="text-[var(--color-background)] text-center">
+          <svg class="w-20 h-20 mx-auto mb-4 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all cursor-pointer" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <span class="font-bold tracking-widest uppercase text-sm">Reproducir Módulo</span>
+        </div>
+      </div>
+
+      <!-- Información de la clase -->
+      <div class="mt-8 border-b border-[var(--color-foreground)] pb-6">
+        <h1 class="text-4xl font-bold text-[var(--color-foreground)] uppercase tracking-tight leading-tight">Módulo 3: La Cuestión Social en Chile</h1>
+        <div class="flex items-center gap-4 mt-6 text-sm">
+          <span class="bg-[var(--color-primary)] text-white px-3 py-1 font-bold uppercase tracking-widest text-xs">Docente: Luis Emilio Recabarren</span>
+          <span class="text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest text-xs">Duración: 45 min</span>
+        </div>
+      </div>
+      
+      <div class="mt-6 text-[var(--color-foreground)] leading-relaxed text-base max-w-3xl prose">
+        <p>En esta sesión analizaremos las condiciones materiales que dieron origen a las primeras mancomunales y sociedades de resistencia a fines del siglo XIX y principios del XX. Estudiaremos la respuesta de la oligarquía y el proceso de politización de la clase trabajadora.</p>
+      </div>
+    </div>
+
+    <!-- Panel Lateral: Temario y Materiales -->
+    <div class="w-full lg:w-80 flex-shrink-0 space-y-6">
+      
+      <!-- Progreso -->
+      <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-secondary)] p-5">
+        <h3 class="font-bold uppercase tracking-tight text-sm mb-3 text-[var(--color-foreground)]">Progreso del Curso</h3>
+        <div class="w-full h-3 bg-[var(--color-border)] rounded-none overflow-hidden mb-2">
+          <div class="h-full bg-[var(--color-primary)] w-[60%]"></div>
+        </div>
+        <p class="text-xs text-right text-[var(--color-muted-foreground)] font-bold">60% Completado</p>
+      </div>
+
+      <!-- Temario -->
+      <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-background)] overflow-hidden shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+        <h3 class="font-bold uppercase tracking-widest text-sm p-4 bg-[var(--color-foreground)] text-[var(--color-background)]">Temario</h3>
+        <ul class="divide-y divide-[var(--color-border)] text-sm font-medium">
+          <li class="p-4 bg-[var(--color-secondary)] flex justify-between items-center opacity-60">
+            <span class="line-through">1. Orígenes y organizaciones</span>
+            <svg class="w-5 h-5 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          </li>
+          <li class="p-4 bg-[var(--color-secondary)] flex justify-between items-center opacity-60">
+            <span class="line-through">2. Sociedades de Resistencia</span>
+            <svg class="w-5 h-5 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          </li>
+          <li class="p-4 border-l-8 border-[var(--color-primary)] bg-[var(--color-background)] flex flex-col gap-2 font-bold">
+            <div class="flex justify-between items-center">
+              <span>3. La Cuestión Social en Chile</span>
+            </div>
+            <span class="text-[10px] bg-[var(--color-primary)] text-white px-2 py-0.5 uppercase tracking-widest w-max">Reproduciendo</span>
+          </li>
+          <li class="p-4 hover:bg-[var(--color-secondary)] cursor-pointer transition-colors flex justify-between items-center text-[var(--color-muted-foreground)]">
+            <span>4. La masacre de Santa María</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Materiales -->
+      <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-background)] p-5">
+        <h3 class="font-bold uppercase tracking-tight text-sm mb-4 border-b border-[var(--color-border)] pb-2">Material Complementario</h3>
+        <ul class="space-y-3">
+          <li class="flex items-center gap-2 text-sm font-bold text-[var(--color-foreground)] hover:text-[var(--color-primary)] hover:underline cursor-pointer transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            Texto: Riqueza y Pobreza (PDF)
+          </li>
+          <li class="flex items-center gap-2 text-sm font-bold text-[var(--color-foreground)] hover:text-[var(--color-primary)] hover:underline cursor-pointer transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            Presentación Módulo 3 (PPTX)
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</AppLayout>

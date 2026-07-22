@@ -1,0 +1,126 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+
+<AppLayout title="Directorio Militante">
+  <div class="mb-8 flex justify-between items-end border-b border-[var(--color-foreground)] pb-6">
+    <div>
+      <h1 class="text-4xl font-bold text-[var(--color-foreground)]">Directorio Nacional</h1>
+      <p class="text-[var(--color-muted-foreground)] mt-2">Buscador de autoridades, dirigentes y cuadros orgánicos.</p>
+    </div>
+    <div class="relative w-full md:w-80">
+      <input type="text" placeholder="Buscar por nombre o cargo..." class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-secondary)] transition-all rounded-none" />
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="flex flex-wrap gap-4 mb-8">
+    <select class="bg-[var(--color-secondary)] border border-[var(--color-border)] px-4 py-2 text-sm font-bold focus:outline-none cursor-pointer">
+      <option>Región</option>
+      <option>Metropolitana</option>
+      <option>Valparaíso</option>
+      <option>Biobío</option>
+    </select>
+    <select class="bg-[var(--color-secondary)] border border-[var(--color-border)] px-4 py-2 text-sm font-bold focus:outline-none cursor-pointer">
+      <option>Rol</option>
+      <option>Comité Central</option>
+      <option>Directiva Nacional</option>
+      <option>Comunal</option>
+    </select>
+  </div>
+
+  <!-- Grilla de Directorio -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    
+    <!-- Tarjeta de Perfil: Presidente -->
+    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
+      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
+        <div class="w-full h-full bg-gray-400 group-hover:scale-110 transition-transform"></div>
+      </div>
+      <div>
+        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Francisco Saba</h3>
+        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Presidente Nacional</p>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
+        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
+          Enviar Mensaje
+        </button>
+      </div>
+    </div>
+    
+    <!-- Tarjeta de Perfil: Secretario General -->
+    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
+      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
+        <div class="w-full h-full bg-gray-300 group-hover:scale-110 transition-transform"></div>
+      </div>
+      <div>
+        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Ignacio Figueroa</h3>
+        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Secretario General</p>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
+        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
+          Enviar Mensaje
+        </button>
+      </div>
+    </div>
+
+    <!-- Tarjeta de Perfil: Vicepresidenta de la mujer -->
+    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
+      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
+        <div class="w-full h-full bg-gray-400 group-hover:scale-110 transition-transform"></div>
+      </div>
+      <div>
+        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Gabriela Carrera</h3>
+        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidenta de la Mujer</p>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
+        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
+          Enviar Mensaje
+        </button>
+      </div>
+    </div>
+
+    <!-- Tarjeta de Perfil: Vicepresidente -->
+    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
+      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
+        <div class="w-full h-full bg-gray-300 group-hover:scale-110 transition-transform"></div>
+      </div>
+      <div>
+        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Simon González</h3>
+        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidente</p>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
+        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
+          Enviar Mensaje
+        </button>
+      </div>
+    </div>
+
+    <!-- Tarjeta de Perfil: Vicepresidenta -->
+    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
+      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
+        <div class="w-full h-full bg-gray-400 group-hover:scale-110 transition-transform"></div>
+      </div>
+      <div>
+        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Sofía Muñoz</h3>
+        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidenta</p>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
+        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
+          Enviar Mensaje
+        </button>
+      </div>
+    </div>
+
+    <!-- Tarjeta de Perfil: Vicepresidente -->
+    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
+      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
+        <div class="w-full h-full bg-gray-300 group-hover:scale-110 transition-transform"></div>
+      </div>
+      <div>
+        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Ricardo Lillo</h3>
+        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidente</p>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
+        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
+          Enviar Mensaje
+        </button>
+      </div>
+    </div>
+
+  </div>
+</AppLayout>

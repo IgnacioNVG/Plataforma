@@ -1,0 +1,88 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+
+export function getStaticPaths() {
+  return [
+    { params: { id: 'resoluciones-cc-2023' } },
+  ];
+}
+---
+
+<AppLayout title="Documento | Biblioteca">
+  <div class="max-w-5xl mx-auto">
+    <!-- Breadcrumb -->
+    <div class="text-sm font-bold text-[var(--color-muted-foreground)] mb-8 uppercase tracking-widest">
+      <a href="/biblioteca" class="hover:text-[var(--color-foreground)] transition-colors">Biblioteca</a> 
+      <span class="mx-2 text-[var(--color-border)]">/</span> 
+      <span class="text-[var(--color-primary)]">Documentos Oficiales</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      
+      <!-- Metadata Lateral -->
+      <div class="md:col-span-1 space-y-6">
+        <div class="w-full aspect-[3/4] bg-[var(--color-secondary)] border-4 border-[var(--color-foreground)] flex items-center justify-center p-6 text-center relative overflow-hidden group shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+          <!-- Textura o fondo abstracto brutalista -->
+          <div class="absolute inset-0 bg-red-900 opacity-5"></div>
+          <div class="relative z-10">
+            <h3 class="font-bold uppercase tracking-tighter text-3xl mb-4 text-[var(--color-foreground)] leading-none">Resoluciones</h3>
+            <div class="w-16 h-2 bg-[var(--color-primary)] mx-auto mb-6"></div>
+            <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest leading-relaxed">Comité Central<br/>Octubre 2023</p>
+          </div>
+        </div>
+
+        <div class="border-2 border-[var(--color-foreground)] p-6 bg-[var(--color-background)]">
+          <dl class="space-y-6 text-sm">
+            <div>
+              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Autor</dt>
+              <dd class="font-bold text-base mt-1">Dirección Nacional</dd>
+            </div>
+            <div>
+              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Fecha de Publicación</dt>
+              <dd class="font-bold text-base mt-1">15 Octubre, 2023</dd>
+            </div>
+            <div>
+              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Formato</dt>
+              <dd class="font-bold text-base mt-1">PDF (2.4 MB)</dd>
+            </div>
+            <div>
+              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Etiquetas</dt>
+              <dd class="mt-2 flex flex-wrap gap-2">
+                <span class="bg-[var(--color-foreground)] text-[var(--color-background)] px-2 py-1 text-xs font-bold uppercase tracking-widest">Orgánica</span>
+                <span class="bg-[var(--color-foreground)] text-[var(--color-background)] px-2 py-1 text-xs font-bold uppercase tracking-widest">Programa</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <button class="w-full bg-[var(--color-primary)] text-white font-bold py-4 uppercase tracking-widest hover:bg-red-800 transition-colors flex items-center justify-center gap-2 border-2 border-[var(--color-primary)] hover:border-red-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Descargar Archivo
+        </button>
+      </div>
+
+      <!-- Descripción -->
+      <div class="md:col-span-2">
+        <h1 class="text-5xl font-bold text-[var(--color-foreground)] mb-8 leading-tight tracking-tight uppercase">Resoluciones del Comité Central respecto a los nuevos desafíos formativos</h1>
+        
+        <div class="prose prose-lg max-w-none text-[var(--color-foreground)] border-t-4 border-[var(--color-foreground)] pt-8">
+          <p class="text-xl font-bold mb-6 leading-relaxed">
+            Documento oficial emanado del Comité Central realizado el 12 de octubre de 2023, donde se establecen los lineamientos para la escuela de formación política de la Juventud.
+          </p>
+          <p class="mb-4">
+            El presente texto recoge las síntesis de las distintas comisiones de trabajo y aprueba el nuevo currículo de formación básica para militantes ingresados durante el último año. Se enfatiza la necesidad de volver a los estudios sobre economía política y la historia del movimiento sindical chileno.
+          </p>
+          
+          <h3 class="font-bold text-2xl mt-8 mb-4 uppercase tracking-tight">Contenidos Principales</h3>
+          <ul class="list-disc pl-6 space-y-2 font-medium">
+            <li>Evaluación del periodo político nacional y rol de la juventud.</li>
+            <li>Reestructuración de la secretaría de educación política.</li>
+            <li>Cronograma oficial de escuelas de verano 2024.</li>
+            <li>Protocolos de seguridad e higiene para encuentros masivos.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</AppLayout>

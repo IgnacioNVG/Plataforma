@@ -1,0 +1,117 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+
+<AppLayout title="Mi Perfil">
+  <div class="max-w-5xl mx-auto">
+    
+    <!-- Ficha Principal (Header del Perfil) -->
+    <div class="bg-[var(--color-foreground)] text-white p-8 md:p-12 rounded-[var(--radius-sm)] border border-[var(--color-foreground)] relative overflow-hidden mb-8">
+      
+      <div class="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-8">
+        
+        <!-- Avatar Grande -->
+        <div class="w-32 h-32 md:w-40 md:h-40 bg-[var(--color-background)] rounded-[var(--radius-sm)] p-1 flex-shrink-0">
+          <div class="w-full h-full bg-gray-400 rounded-[var(--radius-sm)]"></div>
+        </div>
+        
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex flex-col md:flex-row md:items-center gap-4 mb-2">
+            <h1 class="text-4xl font-bold">Camila Rojas</h1>
+            <span class="bg-[var(--color-primary)] text-white text-xs font-bold px-2 py-1 uppercase tracking-widest rounded-[var(--radius-sm)] border border-[var(--color-primary)]">
+              Militante Activo
+            </span>
+          </div>
+          <p class="text-lg text-gray-300 mb-4">Secretaria General Comunal • Dirección Regional Metropolitana</p>
+          
+          <!-- Metadatos Territoriales -->
+          <div class="flex flex-wrap justify-center md:justify-start gap-6 text-sm text-gray-400">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              Comuna de Santiago
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              Ingreso: Mar 2018
+            </div>
+          </div>
+        </div>
+        
+        <!-- Acción Principal -->
+        <div class="mt-6 md:mt-0">
+          <button class="bg-[var(--color-background)] text-[var(--color-foreground)] px-6 py-2 text-sm font-bold rounded-[var(--radius-sm)] hover:bg-gray-200 transition-colors shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] border border-[var(--color-foreground)]">
+            Editar Ficha
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      
+      <!-- Información y Comisiones (1/3) -->
+      <div class="space-y-8">
+        
+        <!-- Comisiones -->
+        <section class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)]">
+          <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-4">Comisiones Activas</h3>
+          <ul class="space-y-3">
+            <li class="flex items-center gap-3">
+              <div class="w-2 h-2 bg-[var(--color-primary)] rounded-full"></div>
+              <span class="text-sm font-medium">Comisión Política</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <div class="w-2 h-2 bg-[var(--color-foreground)] rounded-full"></div>
+              <span class="text-sm font-medium">Frente Estudiantil</span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Insignias / Reconocimientos -->
+        <section class="border border-[var(--color-border)] bg-[var(--color-secondary)] p-6 rounded-[var(--radius-sm)]">
+          <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-4">Insignias Formativas</h3>
+          <div class="flex flex-wrap gap-2">
+            <!-- Badge -->
+            <div class="px-3 py-1 bg-[var(--color-foreground)] text-white text-[10px] uppercase font-bold rounded-[var(--radius-sm)] border border-[var(--color-foreground)]">
+              Nivel Básico Aprobado
+            </div>
+            <div class="px-3 py-1 bg-[var(--color-background)] text-[var(--color-foreground)] text-[10px] uppercase font-bold rounded-[var(--radius-sm)] border border-[var(--color-border)]">
+              Liderazgo 2022
+            </div>
+          </div>
+        </section>
+        
+      </div>
+
+      <!-- Actividad y Cursos (2/3) -->
+      <div class="md:col-span-2 space-y-8">
+        
+        <!-- Tabs (Brutalistas) -->
+        <div class="flex border-b border-[var(--color-border)]">
+          <button class="px-6 py-3 font-bold border-b-2 border-[var(--color-foreground)] bg-[var(--color-background)]">Actividad Reciente</button>
+          <button class="px-6 py-3 font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]">Cursos Completados</button>
+          <button class="px-6 py-3 font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]">Documentos Aportados</button>
+        </div>
+        
+        <!-- Lista de Actividad (Timeline simple) -->
+        <div class="relative pl-4 border-l border-[var(--color-border)] space-y-8 ml-2 mt-6">
+          
+          <!-- Item Timeline -->
+          <div class="relative">
+            <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 bg-[var(--color-foreground)] rounded-full ring-4 ring-[var(--color-background)]"></div>
+            <div class="text-xs text-[var(--color-muted-foreground)] font-bold mb-1">Ayer, 18:30</div>
+            <p class="text-sm">Subió un nuevo documento: <a href="#" class="font-bold hover:text-[var(--color-primary)] underline">Acta Asamblea Comunal Octubre.pdf</a> en la Biblioteca central.</p>
+          </div>
+          
+          <!-- Item Timeline -->
+          <div class="relative">
+            <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 bg-[var(--color-border)] rounded-full ring-4 ring-[var(--color-background)]"></div>
+            <div class="text-xs text-[var(--color-muted-foreground)] font-bold mb-1">12 Octubre 2023</div>
+            <p class="text-sm">Completó el módulo <span class="font-bold">"La Cuestión Social"</span> del curso <span class="italic">Historia del Movimiento Obrero</span> con calificación sobresaliente.</p>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</AppLayout>

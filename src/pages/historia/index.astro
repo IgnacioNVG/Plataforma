@@ -1,0 +1,57 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+
+<AppLayout title="Historia">
+  <div class="mb-12 border-b border-[var(--color-foreground)] pb-6">
+    <h1 class="text-5xl font-bold text-[var(--color-foreground)] uppercase tracking-tight">Historia y Memoria</h1>
+    <p class="text-xl text-[var(--color-muted-foreground)] mt-4 max-w-3xl font-medium">Una reseña histórica de la Juventud Socialista de Chile, desde su fundación hasta nuestros días.</p>
+  </div>
+
+  <article class="max-w-4xl mx-auto space-y-12 text-lg leading-relaxed text-[var(--color-foreground)]">
+    
+    <section>
+      <h2 class="text-3xl font-bold mb-6 text-[var(--color-primary)] border-l-8 border-[var(--color-primary)] pl-6 tracking-tight uppercase">Orígenes (1935-1970)</h2>
+      <p class="mb-6">
+        La Juventud Socialista de Chile (JS) tiene sus raíces en la fundación del Partido Socialista en 1933. Inicialmente organizada como la <strong>Federación de la Juventud Socialista (FJS)</strong>, fue concebida en 1935 durante un congreso como el espacio donde convergerían las fuerzas jóvenes de izquierda, adoptando rápidamente una estructura orgánica y nacional.
+      </p>
+      <p class="mb-6">
+        Durante las décadas posteriores, la FJS tuvo una participación crucial en la formación del movimiento obrero y estudiantil, caracterizándose por un fuerte sentido antiimperialista y de vanguardia cultural.
+      </p>
+    </section>
+
+    <div class="w-full border-t-2 border-dashed border-[var(--color-border)] my-12"></div>
+
+    <section>
+      <h2 class="text-3xl font-bold mb-6 text-[var(--color-primary)] border-l-8 border-[var(--color-primary)] pl-6 tracking-tight uppercase">La Unidad Popular y el Golpe (1970-1973)</h2>
+      <p class="mb-6">
+        Con el triunfo de Salvador Allende y la Unidad Popular, la JS asumió un rol protagónico en la defensa del gobierno popular. Jóvenes socialistas participaron activamente en los trabajos voluntarios, la reforma agraria y la organización popular.
+      </p>
+      
+      <!-- Cita Brutalista -->
+      <div class="my-10 bg-[var(--color-foreground)] text-[var(--color-background)] p-8 rounded-[var(--radius-sm)] border-l-8 border-[var(--color-primary)]">
+        <p class="text-2xl font-bold italic mb-4 leading-snug">
+          "Nuestros puños en alto al combate, golpearán con fervor al luchar."
+        </p>
+        <span class="text-sm uppercase tracking-widest text-gray-400 font-bold">— Extracto del Himno de la JS</span>
+      </div>
+
+      <p class="mb-6">
+        El golpe de Estado civil-militar de 1973 marcó el inicio de la etapa más oscura. La JS pasó a la clandestinidad y fue duramente perseguida. Su Secretario General, <strong>Carlos Lorca Tobar</strong>, fue detenido y hecho desaparecer en 1975, convirtiéndose en un símbolo imperecedero de la resistencia y consecuencia política.
+      </p>
+    </section>
+
+    <div class="w-full border-t-2 border-dashed border-[var(--color-border)] my-12"></div>
+
+    <section>
+      <h2 class="text-3xl font-bold mb-6 text-[var(--color-primary)] border-l-8 border-[var(--color-primary)] pl-6 tracking-tight uppercase">Resistencia y Reconstrucción</h2>
+      <p class="mb-6">
+        Durante la dictadura, la JS se reorganizó en la clandestinidad y en el exilio. Participó activamente en la movilización social de los años 80 que finalmente condujo a la derrota del régimen mediante la organización de masas y la desobediencia civil.
+      </p>
+      <p class="mb-6">
+        Tras la recuperación de la democracia, la JS continuó siendo un actor relevante en el debate político nacional, impulsando las grandes transformaciones en el movimiento estudiantil (particularmente en 2006 y 2011) y asumiendo la formación de nuevos cuadros para los desafíos del siglo XXI.
+      </p>
+    </section>
+
+  </article>
+</AppLayout>

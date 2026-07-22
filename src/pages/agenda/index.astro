@@ -1,0 +1,171 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+
+<AppLayout title="Agenda Institucional">
+  <div class="mb-8 flex justify-between items-end border-b border-[var(--color-foreground)] pb-6">
+    <div>
+      <h1 class="text-4xl font-bold text-[var(--color-foreground)]">Agenda</h1>
+      <p class="text-[var(--color-muted-foreground)] mt-2">Calendario de actividades, plenos, reuniones y eventos formativos.</p>
+    </div>
+    <div class="hidden md:flex gap-2">
+      <button class="bg-[var(--color-background)] border border-[var(--color-border)] px-4 py-2 font-bold text-sm hover:border-[var(--color-foreground)] transition-colors rounded-[var(--radius-sm)]">
+        &larr; Anterior
+      </button>
+      <button class="bg-[var(--color-foreground)] text-white px-6 py-2 font-bold text-sm rounded-[var(--radius-sm)]">
+        Noviembre 2023
+      </button>
+      <button class="bg-[var(--color-background)] border border-[var(--color-border)] px-4 py-2 font-bold text-sm hover:border-[var(--color-foreground)] transition-colors rounded-[var(--radius-sm)]">
+        Siguiente &rarr;
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    
+    <!-- Filtros y Próximos Eventos (1/4) -->
+    <aside class="lg:col-span-1 space-y-8">
+      
+      <!-- Filtros -->
+      <div class="bg-[var(--color-secondary)] p-6 rounded-[var(--radius-sm)] border border-[var(--color-border)]">
+        <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-4">Filtrar por Nivel</h3>
+        <ul class="space-y-3">
+          <li>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]" checked />
+              <span class="text-sm font-bold">Nacional</span>
+            </label>
+          </li>
+          <li>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" checked />
+              <span class="text-sm font-bold">Regional</span>
+            </label>
+          </li>
+          <li>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" checked />
+              <span class="text-sm font-bold">Comunal</span>
+            </label>
+          </li>
+          <li>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" />
+              <span class="text-sm font-bold">Comisiones</span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Próximos Eventos -->
+      <div>
+        <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-foreground)] pb-2 mb-4">Próximos en 7 días</h3>
+        <div class="space-y-4">
+          
+          <article class="group cursor-pointer">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="w-2 h-2 rounded-full bg-[var(--color-primary)]"></span>
+              <span class="text-[10px] font-bold text-[var(--color-primary)] uppercase">Nacional</span>
+            </div>
+            <h4 class="font-bold text-sm group-hover:underline">Pleno del Comité Central</h4>
+            <p class="text-xs text-[var(--color-muted-foreground)]">Jue 12, 18:00 hrs • Sede París 873</p>
+          </article>
+          
+          <article class="group cursor-pointer">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="w-2 h-2 rounded-full bg-[var(--color-foreground)]"></span>
+              <span class="text-[10px] font-bold text-[var(--color-foreground)] uppercase">Regional</span>
+            </div>
+            <h4 class="font-bold text-sm group-hover:underline">Encuentro de Formadores</h4>
+            <p class="text-xs text-[var(--color-muted-foreground)]">Sáb 14, 10:00 hrs • Zoom</p>
+          </article>
+
+        </div>
+      </div>
+      
+    </aside>
+
+    <!-- Calendario Brutalista (3/4) -->
+    <div class="lg:col-span-3">
+      <div class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] rounded-[var(--radius-sm)] overflow-hidden">
+        
+        <!-- Días de la semana -->
+        <div class="grid grid-cols-7 border-b-2 border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white">
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest">Lun</div>
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Mar</div>
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Mié</div>
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Jue</div>
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Vie</div>
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Sáb</div>
+          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Dom</div>
+        </div>
+
+        <!-- Grilla de días (Simulación) -->
+        <div class="grid grid-cols-7 auto-rows-fr">
+          
+          <!-- Día vacío (mes anterior) -->
+          <div class="min-h-[120px] p-2 bg-[var(--color-secondary)] opacity-50 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-muted-foreground)]">30</span>
+          </div>
+          <div class="min-h-[120px] p-2 bg-[var(--color-secondary)] opacity-50 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-muted-foreground)]">31</span>
+          </div>
+          
+          <!-- Días del mes -->
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">1</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">2</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">3</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)] relative bg-[#FFFDF5]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">4</span>
+            <div class="mt-2 bg-[var(--color-foreground)] text-white text-[10px] p-1 font-bold rounded-sm leading-tight truncate">
+              Asamblea Comunal
+            </div>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">5</span>
+          </div>
+          
+          <!-- Siguiente fila (1 semana completa) -->
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">6</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">7</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">8</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">9</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">10</span>
+          </div>
+          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
+            <span class="text-sm font-bold text-[var(--color-foreground)]">11</span>
+          </div>
+          
+          <!-- Hoy -->
+          <div class="min-h-[120px] p-2 border-b border-r-0 border-[var(--color-border)] bg-[#FFFDF5] relative border-t-[3px] border-t-[var(--color-primary)]">
+            <span class="text-sm font-bold text-[var(--color-primary)]">12</span>
+            <div class="mt-2 bg-[var(--color-primary)] text-white text-[10px] p-1 font-bold rounded-sm leading-tight truncate">
+              Pleno CC
+            </div>
+            <div class="mt-1 bg-[var(--color-foreground)] text-white text-[10px] p-1 font-bold rounded-sm leading-tight truncate">
+              Reunión Frentes
+            </div>
+          </div>
+          
+          <!-- Resto de las filas omitidas por brevedad en este wireframe -->
+          
+        </div>
+      </div>
+    </div>
+  </div>
+</AppLayout>

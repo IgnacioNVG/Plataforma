@@ -1,0 +1,153 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+
+<AppLayout title="Biblioteca y Documentos">
+  <div class="mb-8 border-b border-[var(--color-foreground)] pb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div>
+      <h1 class="text-4xl font-bold text-[var(--color-foreground)]">Repositorio Central</h1>
+      <p class="text-[var(--color-muted-foreground)] mt-2 max-w-2xl">Acervo documental, actas, declaraciones y material de estudio histórico.</p>
+    </div>
+    
+    <div class="relative w-full md:w-96">
+      <input type="text" placeholder="Buscar por título, autor o etiqueta..." class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-secondary)] transition-all rounded-none" />
+      <button class="absolute right-0 top-0 bottom-0 bg-[var(--color-foreground)] text-white px-4 hover:bg-[var(--color-primary)] transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex flex-col md:flex-row gap-8">
+    
+    <!-- Sidebar Filtros -->
+    <aside class="w-full md:w-64 flex-shrink-0 space-y-8">
+      
+      <div>
+        <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-3">Categorías</h3>
+        <ul class="space-y-2">
+          <li>
+            <label class="flex items-center gap-2 cursor-pointer group">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" checked />
+              <span class="text-sm font-medium group-hover:text-[var(--color-primary)]">Resoluciones (42)</span>
+            </label>
+          </li>
+          <li>
+            <label class="flex items-center gap-2 cursor-pointer group">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" />
+              <span class="text-sm font-medium group-hover:text-[var(--color-primary)]">Material de Estudio (18)</span>
+            </label>
+          </li>
+          <li>
+            <label class="flex items-center gap-2 cursor-pointer group">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" />
+              <span class="text-sm font-medium group-hover:text-[var(--color-primary)]">Actas (104)</span>
+            </label>
+          </li>
+          <li>
+            <label class="flex items-center gap-2 cursor-pointer group">
+              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" />
+              <span class="text-sm font-medium group-hover:text-[var(--color-primary)]">Propuestas (7)</span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-3">Etiquetas Populares</h3>
+        <div class="flex flex-wrap gap-2">
+          <span class="bg-[var(--color-secondary)] text-[var(--color-foreground)] text-xs font-bold px-2 py-1 cursor-pointer hover:border-[var(--color-foreground)] border border-transparent transition-all">#Congreso</span>
+          <span class="bg-[var(--color-secondary)] text-[var(--color-foreground)] text-xs font-bold px-2 py-1 cursor-pointer hover:border-[var(--color-foreground)] border border-transparent transition-all">#Estatutos</span>
+          <span class="bg-[var(--color-secondary)] text-[var(--color-foreground)] text-xs font-bold px-2 py-1 cursor-pointer hover:border-[var(--color-foreground)] border border-transparent transition-all">#Educación</span>
+          <span class="bg-[var(--color-secondary)] text-[var(--color-foreground)] text-xs font-bold px-2 py-1 cursor-pointer hover:border-[var(--color-foreground)] border border-transparent transition-all">#Feminismo</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Tabla Documentos (Brutalista) -->
+    <div class="flex-1 overflow-x-auto">
+      
+      <div class="flex justify-between items-center mb-4">
+        <span class="text-sm font-bold text-[var(--color-muted-foreground)]">Mostrando 4 de 171 documentos</span>
+        <select class="bg-[var(--color-background)] border border-[var(--color-border)] text-sm font-medium px-2 py-1 focus:outline-none">
+          <option>Más recientes</option>
+          <option>Alfabético (A-Z)</option>
+          <option>Más descargados</option>
+        </select>
+      </div>
+
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b-2 border-[var(--color-foreground)]">
+            <th class="py-3 px-4 text-xs font-bold uppercase tracking-widest text-[var(--color-foreground)]">Documento</th>
+            <th class="py-3 px-4 text-xs font-bold uppercase tracking-widest text-[var(--color-foreground)] hidden md:table-cell">Autor/Origen</th>
+            <th class="py-3 px-4 text-xs font-bold uppercase tracking-widest text-[var(--color-foreground)] hidden lg:table-cell">Fecha</th>
+            <th class="py-3 px-4 text-xs font-bold uppercase tracking-widest text-[var(--color-foreground)] text-right">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr class="border-b border-[var(--color-border)] hover:bg-[var(--color-secondary)] transition-colors group">
+            <td class="py-4 px-4">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-[var(--color-primary)] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                <div>
+                  <p class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Resoluciones XXX Congreso General</p>
+                  <p class="text-xs text-[var(--color-muted-foreground)] flex items-center gap-2 mt-1">
+                    <span class="bg-[var(--color-foreground)] text-white px-1.5 py-0.5 text-[9px] uppercase font-bold">Oficial</span>
+                    v2.1 • PDF • 1.2 MB
+                  </p>
+                </div>
+              </div>
+            </td>
+            <td class="py-4 px-4 hidden md:table-cell text-sm font-medium text-[var(--color-muted-foreground)]">Comité Central</td>
+            <td class="py-4 px-4 hidden lg:table-cell text-sm text-[var(--color-muted-foreground)]">15 Nov, 2023</td>
+            <td class="py-4 px-4 text-right">
+              <button class="text-sm font-bold border border-[var(--color-foreground)] px-3 py-1 hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+                Descargar
+              </button>
+            </td>
+          </tr>
+
+          <tr class="border-b border-[var(--color-border)] hover:bg-[var(--color-secondary)] transition-colors group">
+            <td class="py-4 px-4">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-[var(--color-muted-foreground)] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                <div>
+                  <p class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Apuntes: Historia del PSCh</p>
+                  <p class="text-xs text-[var(--color-muted-foreground)] flex items-center gap-2 mt-1">
+                    <span class="border border-[var(--color-border)] text-[var(--color-foreground)] px-1.5 py-0.5 text-[9px] uppercase font-bold">Borrador</span>
+                    v1.0 • DOCX • 540 KB
+                  </p>
+                </div>
+              </div>
+            </td>
+            <td class="py-4 px-4 hidden md:table-cell text-sm font-medium text-[var(--color-muted-foreground)]">Instituto Igualdad</td>
+            <td class="py-4 px-4 hidden lg:table-cell text-sm text-[var(--color-muted-foreground)]">02 Sep, 2023</td>
+            <td class="py-4 px-4 text-right">
+              <button class="text-sm font-bold border border-[var(--color-foreground)] px-3 py-1 hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+                Descargar
+              </button>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <!-- Paginación Simple -->
+      <div class="flex justify-between items-center mt-8 pt-4 border-t border-[var(--color-border)]">
+        <button class="text-sm font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] disabled:opacity-50" disabled>
+          &larr; Anterior
+        </button>
+        <div class="flex gap-2">
+          <span class="w-8 h-8 flex items-center justify-center bg-[var(--color-foreground)] text-white font-bold text-sm">1</span>
+          <span class="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-secondary)] cursor-pointer text-sm font-bold text-[var(--color-foreground)]">2</span>
+          <span class="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-secondary)] cursor-pointer text-sm font-bold text-[var(--color-foreground)]">3</span>
+        </div>
+        <button class="text-sm font-bold text-[var(--color-foreground)] hover:text-[var(--color-primary)]">
+          Siguiente &rarr;
+        </button>
+      </div>
+      
+    </div>
+  </div>
+</AppLayout>

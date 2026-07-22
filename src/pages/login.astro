@@ -1,0 +1,53 @@
+---
+import AuthLayout from '../layouts/AuthLayout.astro';
+---
+
+<AuthLayout title="Iniciar Sesión">
+  <div class="w-full max-w-md mx-auto">
+    <!-- Header Formulario -->
+    <div class="mb-10">
+      <h2 class="text-4xl font-black uppercase tracking-tight mb-2 leading-none">Acceso<br/>Central</h2>
+      <p class="text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest text-xs border-l-4 border-[var(--color-primary)] pl-3 mt-4">Portal de Militancia</p>
+    </div>
+
+    <!-- Formulario -->
+    <form class="space-y-6">
+      
+      <div class="space-y-2">
+        <label for="rut" class="block text-xs font-black uppercase tracking-widest">RUT Nacional</label>
+        <input 
+          type="text" 
+          id="rut" 
+          placeholder="12.345.678-9" 
+          class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-gray-300"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex justify-between items-end">
+          <label for="password" class="block text-xs font-black uppercase tracking-widest">Contraseña</label>
+          <a href="#" class="text-[10px] font-bold text-[var(--color-primary)] uppercase hover:underline">¿Olvidaste tu clave?</a>
+        </div>
+        <input 
+          type="password" 
+          id="password" 
+          placeholder="••••••••" 
+          class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-gray-300"
+        />
+      </div>
+
+      <button type="button" class="w-full bg-[var(--color-foreground)] text-[var(--color-background)] font-black uppercase tracking-widest py-4 mt-6 hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-[2px_2px_0px_0px_var(--color-primary)]" onclick="window.location.href='/'">
+        Iniciar Sesión
+      </button>
+
+    </form>
+
+    <div class="mt-12 pt-8 border-t-2 border-dashed border-[var(--color-border)] text-center">
+      <p class="text-sm font-bold text-[var(--color-muted-foreground)]">¿No tienes cuenta digital activa?</p>
+      <a href="/validacion" class="inline-block mt-4 text-xs font-black uppercase tracking-widest text-[var(--color-primary)] border-2 border-[var(--color-primary)] px-6 py-4 hover:bg-[var(--color-primary)] hover:text-white transition-colors w-full">
+        Validar Padrón y Crear Cuenta
+      </a>
+    </div>
+
+  </div>
+</AuthLayout>

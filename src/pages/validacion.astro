@@ -1,0 +1,75 @@
+---
+import AuthLayout from '../layouts/AuthLayout.astro';
+---
+
+<AuthLayout title="Validación en Padrón">
+  <div class="w-full max-w-md mx-auto">
+    <!-- Breadcrumb -->
+    <a href="/login" class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] mb-8 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      Volver al Login
+    </a>
+
+    <!-- Header Formulario -->
+    <div class="mb-10">
+      <h2 class="text-4xl font-black uppercase tracking-tight mb-2 leading-none">Validación<br/>Orgánica</h2>
+      <p class="text-[var(--color-muted-foreground)] mt-6 text-sm font-medium border-l-4 border-[var(--color-primary)] pl-4">
+        Para crear tu cuenta digital, primero debemos verificar que te encuentras activo en el padrón oficial validado por el Tribunal Supremo.
+      </p>
+    </div>
+
+    <!-- Etapa 1: Formulario de Validación -->
+    <form class="space-y-6 relative transition-opacity duration-500" id="validationForm">
+      
+      <div class="space-y-2">
+        <label for="rut_validation" class="block text-xs font-black uppercase tracking-widest">Tu RUT</label>
+        <input 
+          type="text" 
+          id="rut_validation" 
+          placeholder="Ej: 19.876.543-2" 
+          class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-gray-300"
+        />
+      </div>
+      
+      <div class="space-y-2">
+        <label for="document_number" class="block text-xs font-black uppercase tracking-widest flex items-center gap-2">
+          Número de Documento (Cédula)
+        </label>
+        <input 
+          type="text" 
+          id="document_number" 
+          placeholder="Ej: 123456789" 
+          class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-gray-300"
+        />
+        <p class="text-[10px] uppercase font-bold text-[var(--color-muted-foreground)] mt-2">Requerido para verificación de identidad cruzada automatizada.</p>
+      </div>
+
+      <button type="button" onclick="document.getElementById('successState').classList.remove('hidden'); this.closest('form').classList.add('opacity-20', 'pointer-events-none')" class="w-full bg-[var(--color-foreground)] text-[var(--color-background)] font-black uppercase tracking-widest py-4 mt-6 hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-[2px_2px_0px_0px_var(--color-primary)]">
+        Consultar Padrón
+      </button>
+
+    </form>
+
+    <!-- Etapa 2: Resultado Exitoso (Mock oculto inicialmente) -->
+    <div id="successState" class="hidden mt-8 border-t-8 border-[var(--color-primary)] bg-[var(--color-secondary)] p-8 shadow-[8px_8px_0px_0px_var(--color-foreground)] border-2 border-[var(--color-foreground)] animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div class="flex items-start gap-4 mb-6">
+        <div class="w-12 h-12 bg-green-600 flex items-center justify-center rounded-none border-2 border-[var(--color-foreground)] flex-shrink-0">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <div>
+          <h3 class="font-black uppercase tracking-tighter text-2xl text-[var(--color-foreground)] leading-none mb-2">¡Militancia Confirmada!</h3>
+          <p class="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">Base Orgánica: Comuna de Santiago</p>
+        </div>
+      </div>
+      
+      <p class="text-sm font-medium mb-6 text-[var(--color-foreground)] leading-relaxed">
+        Hemos encontrado tus datos en el padrón orgánico actual. Se ha enviado un enlace seguro al correo electrónico asociado a tu ficha de inscripción <strong class="text-[var(--color-primary)]">(c***@gmail.com)</strong> para que establezcas tu contraseña de acceso.
+      </p>
+      
+      <button onclick="window.location.href='/login'" class="w-full text-xs font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] bg-[var(--color-background)] py-4 hover:bg-[var(--color-foreground)] hover:text-[var(--color-background)] transition-colors">
+        Entendido, volver al Login
+      </button>
+    </div>
+
+  </div>
+</AuthLayout>

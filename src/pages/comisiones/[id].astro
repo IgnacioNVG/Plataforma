@@ -1,0 +1,107 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+
+export function getStaticPaths() {
+  return [
+    { params: { id: 'sindical' } },
+  ];
+}
+---
+
+<AppLayout title="Frente Sindical">
+  <!-- Cabecera de la Comisión (Brutalista Extremo) -->
+  <div class="bg-[var(--color-foreground)] text-[var(--color-background)] p-8 md:p-12 -mx-8 -mt-8 mb-8 border-b-8 border-[var(--color-primary)]">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+      <div>
+        <span class="inline-block bg-[var(--color-primary)] text-white text-xs font-bold uppercase tracking-widest px-3 py-1 mb-6">Frente de Masas</span>
+        <h1 class="text-6xl font-black uppercase tracking-tighter leading-none">Comisión<br/>Sindical</h1>
+        <p class="mt-6 text-gray-300 max-w-2xl text-xl font-medium leading-relaxed border-l-4 border-[var(--color-primary)] pl-4">Espacio de articulación para militantes insertos en sindicatos, federaciones y el mundo del trabajo en general.</p>
+      </div>
+      <div class="flex gap-4 w-full md:w-auto">
+        <button class="bg-[var(--color-background)] text-[var(--color-foreground)] font-black px-8 py-4 uppercase text-sm hover:bg-gray-200 transition-colors w-full md:w-auto tracking-widest shadow-[4px_4px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+          Unirme a Comisión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-12">
+    
+    <!-- Columna Izquierda: Actividad -->
+    <div class="lg:col-span-2 space-y-10">
+      
+      <!-- Tablero / Muro -->
+      <section>
+        <div class="flex justify-between items-center border-b-4 border-[var(--color-foreground)] pb-4 mb-8">
+          <h2 class="text-3xl font-black uppercase tracking-tight">Muro de Trabajo</h2>
+          <button class="text-sm font-bold text-[var(--color-primary)] hover:underline uppercase tracking-widest">+ Nuevo Anuncio</button>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Post -->
+          <div class="border-2 border-[var(--color-foreground)] p-6 bg-[var(--color-background)] shadow-[4px_4px_0px_0px_var(--color-border)]">
+            <div class="flex justify-between items-center mb-4 border-b border-[var(--color-border)] pb-4">
+              <span class="font-black text-lg uppercase tracking-tight">Arturo Martínez</span>
+              <span class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Hoy, 10:30 AM</span>
+            </div>
+            <p class="text-base font-medium leading-relaxed mb-6">Compañeros, adjunto el borrador del petitorio unificado para la negociación ramal. Por favor revisar los puntos sobre seguridad laboral y dejar sus comentarios antes del viernes.</p>
+            <div class="bg-[var(--color-secondary)] p-4 flex justify-between items-center border border-[var(--color-border)]">
+              <span class="text-sm font-bold text-[var(--color-foreground)] cursor-pointer flex items-center gap-2 hover:text-[var(--color-primary)] transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                petitorio_borrador_v2.pdf
+              </span>
+              <span class="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">3 comentarios</span>
+            </div>
+          </div>
+          
+          <!-- Post -->
+          <div class="border-2 border-[var(--color-border)] p-6 bg-[var(--color-secondary)] opacity-80">
+            <div class="flex justify-between items-center mb-4 border-b border-[var(--color-border)] pb-4">
+              <span class="font-black text-lg uppercase tracking-tight text-[var(--color-muted-foreground)]">Coordinación Sindical</span>
+              <span class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Ayer</span>
+            </div>
+            <p class="text-base font-medium leading-relaxed text-[var(--color-muted-foreground)]">Recordatorio: La reunión mensual presencial se ha movido al salón principal de la sede central por temas de aforo.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Columna Derecha: Sidebar de la Comisión -->
+    <div class="space-y-8">
+      
+      <!-- Miembros clave -->
+      <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-background)] p-6">
+        <h3 class="font-black uppercase tracking-tighter border-b-2 border-[var(--color-foreground)] pb-3 mb-5 text-xl">Coordinación</h3>
+        <ul class="space-y-4">
+          <li class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-gray-400 rounded-none border border-[var(--color-foreground)]"></div>
+            <div>
+              <p class="text-sm font-black uppercase tracking-tight">Arturo Martínez</p>
+              <p class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest mt-1">Encargado</p>
+            </div>
+          </li>
+          <li class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-gray-300 rounded-none border border-[var(--color-foreground)]"></div>
+            <div>
+              <p class="text-sm font-black uppercase tracking-tight">Daniela Osorio</p>
+              <p class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-1">Delegada CUT</p>
+            </div>
+          </li>
+        </ul>
+        <button class="w-full mt-6 text-xs font-bold uppercase tracking-widest border-2 border-[var(--color-foreground)] py-3 hover:bg-[var(--color-foreground)] hover:text-[var(--color-background)] transition-colors">Ver todos (42)</button>
+      </div>
+
+      <!-- Enlaces Rápidos -->
+      <div class="border-2 border-[var(--color-border)] bg-[var(--color-secondary)] p-6">
+        <h3 class="font-black uppercase tracking-tighter mb-5 text-xl">Recursos</h3>
+        <ul class="space-y-4 text-sm font-bold">
+          <li><a href="#" class="hover:text-[var(--color-primary)] hover:translate-x-1 transition-all flex items-center gap-3"><svg class="w-5 h-5 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> Carpeta Drive</a></li>
+          <li><a href="#" class="hover:text-[var(--color-primary)] hover:translate-x-1 transition-all flex items-center gap-3"><svg class="w-5 h-5 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Minutas Históricas</a></li>
+          <li><a href="#" class="hover:text-[var(--color-primary)] hover:translate-x-1 transition-all flex items-center gap-3"><svg class="w-5 h-5 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path></svg> Grupo de WhatsApp</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</AppLayout>

@@ -1,0 +1,58 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+
+// En un caso real esto vendría de una API
+export function getStaticPaths() {
+  return [
+    { params: { id: '1' } },
+  ];
+}
+---
+
+<AppLayout title="Lectura de Noticia">
+  <article class="max-w-3xl mx-auto py-8">
+    <div class="mb-8">
+      <a href="/noticias" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2 mb-6">
+        ← Volver a Noticias
+      </a>
+      <span class="text-sm font-bold text-[var(--color-primary)] uppercase tracking-widest border border-[var(--color-primary)] px-2 py-1">Nacional</span>
+      <h1 class="text-5xl font-bold mt-4 mb-4 leading-tight">Encuentro de Juventudes en el Sur: Resoluciones del Pleno</h1>
+      <div class="flex items-center gap-4 text-sm text-[var(--color-muted-foreground)]">
+        <span>Por <strong>Dirección Nacional</strong></span>
+        <span>•</span>
+        <span>12 de Octubre, 2023</span>
+      </div>
+    </div>
+
+    <div class="w-full h-96 bg-[var(--color-secondary)] mb-12 border border-[var(--color-border)] rounded-[var(--radius-sm)] overflow-hidden">
+        <div class="w-full h-full bg-gray-400 flex items-center justify-center">
+            <span class="text-gray-600 font-bold tracking-widest uppercase">Imagen Destacada</span>
+        </div>
+    </div>
+
+    <div class="prose prose-lg max-w-none text-[var(--color-foreground)] leading-relaxed">
+      <p class="font-bold text-xl mb-6">
+        Delegaciones de diversas regiones se congregaron para discutir lineamientos programáticos de cara al próximo periodo, estableciendo compromisos clave para el trabajo territorial.
+      </p>
+      
+      <p class="mb-6">
+        El encuentro, que se extendió por tres días, congregó a más de 200 militantes de todo el país. Los debates se centraron en la actualización del programa de la juventud y en la definición de estrategias para enfrentar los desafíos políticos del presente año.
+      </p>
+
+      <div class="my-8 bg-[var(--color-background)] border-l-8 border-[var(--color-primary)] p-6 shadow-sm border-t border-r border-b border-[var(--color-border)]">
+        <p class="italic font-medium text-lg">"La fuerza de nuestra juventud reside en su capacidad de organizarse en cada territorio, sin perder de vista los grandes objetivos nacionales."</p>
+      </div>
+
+      <h2 class="text-2xl font-bold mt-10 mb-4 uppercase tracking-tight">Acuerdos Principales</h2>
+      <ul class="list-disc pl-6 space-y-2 mb-8">
+        <li>Fortalecimiento de la estructura comunal y regional en las provincias del sur.</li>
+        <li>Despliegue de la Escuela de Formación de Invierno en formato descentralizado.</li>
+        <li>Articulación con organizaciones sociales afines y movimientos socioambientales.</li>
+      </ul>
+
+      <p class="mb-6">
+        La dirección nacional hizo un llamado a mantener la cohesión interna y a redoblar los esfuerzos de movilización. El próximo pleno se realizará en el mes de diciembre, donde se evaluará el cumplimiento de estas resoluciones y se planificará la agenda del próximo año.
+      </p>
+    </div>
+  </article>
+</AppLayout>
