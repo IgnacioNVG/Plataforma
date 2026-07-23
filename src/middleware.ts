@@ -3,10 +3,12 @@ import { initializeLucia, luciaStorage } from './lib/auth';
 import { drizzle } from 'drizzle-orm/d1';
 import { dbStorage } from './db';
 
+import { env } from 'cloudflare:workers';
+
 export const onRequest = defineMiddleware(async (context, next) => {
-  const d1 = context.locals.runtime?.env?.DB;
+  const d1 = env.DB;
   if (!d1) {
-    console.warn("D1 Database binding 'DB' not found in context.locals.runtime.env");
+    console.warn("D1 Database binding 'DB' not found in cloudflare:workers env");
     return next();
   }
 
