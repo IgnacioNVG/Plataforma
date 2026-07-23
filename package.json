@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "node -e \"const fs=require('fs'); try{fs.rmSync('.wrangler',{recursive:true,force:true})}catch(e){}\" && astro build && node -e \"const fs=require('fs'); try{fs.unlinkSync('dist/server/wrangler.json')}catch(e){}\"",
+    "build": "astro build && node fix-wrangler.cjs",
     "preview": "astro preview",
     "astro": "astro",
     "db:generate": "drizzle-kit generate",
