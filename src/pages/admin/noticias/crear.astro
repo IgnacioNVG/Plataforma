@@ -3,9 +3,6 @@ import { authorize } from '../../../lib/authz';
 import AppLayout from '../../../layouts/AppLayout.astro';
 import { db } from '../../../db';
 import { newsTable } from '../../../db/schema';
-import fs from 'node:fs';
-import path from 'node:path';
-import sharp from 'sharp';
 
 const user = Astro.locals.user;
 const canManage = await authorize(user?.id, 'manage', 'news');
@@ -35,22 +32,9 @@ if (Astro.request.method === 'POST') {
       let imageUrl = null;
 
       if (image && image instanceof File && image.size > 0) {
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'news');
-        await fs.promises.mkdir(uploadDir, { recursive: true });
-        
-        const fileName = `${slug}-${Date.now()}.webp`;
-        const filePath = path.join(uploadDir, fileName);
-        
-        const arrayBuffer = await image.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        
-        // Optimize image for news cover (e.g., 1200x630 aspect ratio for sharing)
-        await sharp(buffer)
-          .resize(1200, 630, { fit: 'cover' })
-          .webp({ quality: 85 })
-          .toFile(filePath);
-          
-        imageUrl = `/uploads/news/${fileName}`;
+        // Subida de imágenes local deshabilitada temporalmente por compatibilidad con Cloudflare Pages.
+        // TODO: Migrar a Cloudflare R2 u otro bucket S3.
+        imageUrl = null; 
       }
 
       await db.insert(newsTable).values({

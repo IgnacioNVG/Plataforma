@@ -3,9 +3,6 @@ import AppLayout from '../../layouts/AppLayout.astro';
 import { db } from '../../db';
 import { userTable } from '../../db/schema';
 import { eq } from 'drizzle-orm';
-import fs from 'node:fs';
-import path from 'node:path';
-import sharp from 'sharp';
 
 const user = Astro.locals.user;
 if (!user) {
@@ -31,21 +28,9 @@ if (Astro.request.method === 'POST') {
 
     if (avatar && avatar instanceof File && avatar.size > 0) {
       try {
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
-        await fs.promises.mkdir(uploadDir, { recursive: true });
-        
-        const fileName = `${user.id}.webp`;
-        const filePath = path.join(uploadDir, fileName);
-        
-        const arrayBuffer = await avatar.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        
-        await sharp(buffer)
-          .resize(400, 400, { fit: 'cover' })
-          .webp({ quality: 80 })
-          .toFile(filePath);
-          
-        newAvatarUrl = `/uploads/avatars/${fileName}?t=${Date.now()}`;
+        // Subida de imágenes local deshabilitada temporalmente por compatibilidad con Cloudflare Pages.
+        // TODO: Migrar a Cloudflare R2 u otro bucket S3.
+        newAvatarUrl = dbUser.avatarUrl;
       } catch (uploadErr) {
         console.error('Error procesando avatar:', uploadErr);
       }

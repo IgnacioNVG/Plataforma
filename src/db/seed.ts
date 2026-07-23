@@ -8,7 +8,7 @@ import {
 } from './schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
-import { Argon2id } from 'oslo/password';
+import bcrypt from 'bcryptjs';
 import { hashBlindIndex } from '../lib/crypto';
 
 async function seed() {
@@ -61,7 +61,7 @@ async function seed() {
   
   if (!user) {
     const userId = crypto.randomUUID();
-    const hashedPassword = await new Argon2id().hash('Topstone2gvx');
+    const hashedPassword = await bcrypt.hash('Topstone2gvx', 10);
     const hashedRut = hashBlindIndex('11111111-1'); // Determinista
     await db.insert(userTable).values({
       id: userId,

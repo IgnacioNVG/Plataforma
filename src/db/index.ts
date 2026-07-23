@@ -1,13 +1,19 @@
-import { drizzle } from 'drizzle-orm/libsql';
-import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/d1';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
-// Astro/Vite expone las variables de entorno aquí. En Cloudflare Pages provienen de la pestaña Settings > Environment Variables.
-const dbUrl = import.meta.env.TURSO_DATABASE_URL || 'file:local_dev.db';
-const dbAuthToken = import.meta.env.TURSO_AUTH_TOKEN;
+// Almacén asíncrono para mantener la conexión D1 aislada por cada petición web
+export const dbStorage = new AsyncLocalStorage<any>();
 
-const client = createClient({ 
-  url: dbUrl,
-  ...(dbAuthToken ? { authToken: dbAuthToken } : {})
-});
-
-export const db = drizzle(client);
+// Exportamos un Proxy global. Así no tenemos que modificar los 23 archivos que importan `db`.
+// Cada vez que un archivo llame a `db.select()`, el proxy lo redirigirá a la conexión D1 de la petición actual.
+export const db = new Proxy({}, {
+  get(target, prop) {
+    const store = dbStorage.getStore();
+    if (!store) {
+      // Fallback a console warn para evitar crasheos si se lee fuera del contexto (ej: build estático)
+      console.warn("Intentando acceder a DB fuera del contexto de una petición");
+      return () => ({}); 
+    }
+    return store[prop];
+  }
+}) as any;

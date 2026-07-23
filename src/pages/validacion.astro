@@ -1,5 +1,94 @@
 ---
 import AuthLayout from '../layouts/AuthLayout.astro';
+import { cleanRut } from '../lib/rut';
+import { mockPadronTable, userTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
+
+const db = Astro.locals.db;
+const lucia = Astro.locals.lucia;
+
+let error = '';
+let step = 1;
+let padronData = null;
+let currentRut = '';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action');
+
+  if (action === 'validate') {
+    const rawRut = data.get('rut') as string;
+    currentRut = cleanRut(rawRut);
+    
+    const pepper = import.meta.env.BLIND_INDEX_PEPPER || 'default-pepper-123';
+    const rutHash = crypto.createHash('sha256').update(currentRut + pepper).digest('hex');
+
+    // 1. Check if user already exists
+    const existingUser = await db.select().from(userTable).where(eq(userTable.rutHash, rutHash)).get();
+    
+    if (existingUser) {
+      error = "Este RUT ya tiene una cuenta activa. Por favor, inicia sesión.";
+    } else {
+      // 2. Check Padron
+      const padronRecord = await db.select().from(mockPadronTable).where(eq(mockPadronTable.rutHash, rutHash)).get();
+      if (!padronRecord) {
+        error = "No te encuentras en el Padrón Oficial. Si crees que es un error, contacta al Tribunal Supremo.";
+      } else {
+        step = 2;
+        padronData = padronRecord;
+      }
+    }
+  } else if (action === 'register') {
+    const rawRut = data.get('rut') as string;
+    currentRut = cleanRut(rawRut);
+    const email = data.get('email') as string;
+    const password = data.get('password') as string;
+    const name = data.get('name') as string;
+    const lastName = data.get('lastName') as string;
+
+    const pepper = import.meta.env.BLIND_INDEX_PEPPER || 'default-pepper-123';
+    const rutHash = crypto.createHash('sha256').update(currentRut + pepper).digest('hex');
+
+    // Double check padron
+    const padronRecord = await db.select().from(mockPadronTable).where(eq(mockPadronTable.rutHash, rutHash)).get();
+    if (padronRecord) {
+      try {
+        const userId = crypto.randomUUID();
+        const passwordHash = await bcrypt.hash(password, 10);
+        
+        await db.insert(userTable).values({
+          id: userId,
+          rutHash: rutHash,
+          email: email.toLowerCase(),
+          name: name,
+          lastName: lastName,
+          passwordHash: passwordHash,
+          isActive: true
+        });
+
+        // Crear sesión automáticamente
+        const session = await lucia.createSession(userId, {});
+        const sessionCookie = lucia.createSessionCookie(session.id);
+        Astro.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+
+        return Astro.redirect('/');
+      } catch (e: any) {
+        if (e.message?.includes('UNIQUE')) {
+          error = "Este correo electrónico ya está en uso.";
+        } else {
+          error = "Ocurrió un error al crear tu cuenta. Intenta de nuevo.";
+        }
+        step = 2;
+        padronData = padronRecord;
+      }
+    } else {
+      error = "RUT inválido.";
+      step = 1;
+    }
+  }
+}
 ---
 
 <AuthLayout title="Validación en Padrón">
@@ -12,64 +101,111 @@ import AuthLayout from '../layouts/AuthLayout.astro';
 
     <!-- Header Formulario -->
     <div class="mb-10">
-      <h2 class="text-4xl font-black uppercase tracking-tight mb-2 leading-none">Validación<br/>Orgánica</h2>
+      <h2 class="text-4xl font-black uppercase tracking-tight mb-2 leading-none">
+        {step === 1 ? 'Validación' : 'Crear Cuenta'}<br/>
+        {step === 1 ? 'Orgánica' : 'Militante'}
+      </h2>
       <p class="text-[var(--color-muted-foreground)] mt-6 text-sm font-medium border-l-4 border-[var(--color-primary)] pl-4">
-        Para crear tu cuenta digital, primero debemos verificar que te encuentras activo en el padrón oficial validado por el Tribunal Supremo.
+        {step === 1 
+          ? 'Para crear tu cuenta digital, primero debemos verificar que te encuentras activo en el padrón oficial validado por el Tribunal Supremo.'
+          : 'Militancia confirmada. Completa los siguientes datos para configurar tu acceso a la plataforma.'}
       </p>
     </div>
 
-    <!-- Etapa 1: Formulario de Validación -->
-    <form class="space-y-6 relative transition-opacity duration-500" id="validationForm">
-      
-      <div class="space-y-2">
-        <label for="rut_validation" class="block text-xs font-black uppercase tracking-widest">Tu RUT</label>
-        <input 
-          type="text" 
-          id="rut_validation" 
-          placeholder="Ej: 19.876.543-2" 
-          class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-gray-300"
-        />
+    {error && (
+      <div class="mb-6 border-l-4 border-red-500 bg-red-500/10 p-4 text-red-500 text-sm font-bold animate-in fade-in slide-in-from-top-2">
+        {error}
       </div>
-      
-      <div class="space-y-2">
-        <label for="document_number" class="block text-xs font-black uppercase tracking-widest flex items-center gap-2">
-          Número de Documento (Cédula)
-        </label>
-        <input 
-          type="text" 
-          id="document_number" 
-          placeholder="Ej: 123456789" 
-          class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-gray-300"
-        />
-        <p class="text-[10px] uppercase font-bold text-[var(--color-muted-foreground)] mt-2">Requerido para verificación de identidad cruzada automatizada.</p>
-      </div>
+    )}
 
-      <button type="button" onclick="document.getElementById('successState').classList.remove('hidden'); this.closest('form').classList.add('opacity-20', 'pointer-events-none')" class="w-full bg-[var(--color-foreground)] text-[var(--color-background)] font-black uppercase tracking-widest py-4 mt-6 hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-[2px_2px_0px_0px_var(--color-primary)]">
-        Consultar Padrón
-      </button>
-
-    </form>
-
-    <!-- Etapa 2: Resultado Exitoso (Mock oculto inicialmente) -->
-    <div id="successState" class="hidden mt-8 border-t-8 border-[var(--color-primary)] bg-[var(--color-secondary)] p-8 shadow-[8px_8px_0px_0px_var(--color-foreground)] border-2 border-[var(--color-foreground)] animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div class="flex items-start gap-4 mb-6">
-        <div class="w-12 h-12 bg-green-600 flex items-center justify-center rounded-none border-2 border-[var(--color-foreground)] flex-shrink-0">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+    {step === 1 ? (
+      <form method="POST" class="space-y-6 relative transition-opacity duration-500" id="validationForm">
+        <input type="hidden" name="action" value="validate" />
+        
+        <div class="space-y-2">
+          <label for="rut_validation" class="block text-xs font-black uppercase tracking-widest">Tu RUT</label>
+          <input 
+            type="text" 
+            id="rut_validation" 
+            name="rut"
+            required
+            placeholder="Ej: 19876543-2" 
+            value={currentRut}
+            class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder:text-[var(--color-muted-foreground)]"
+          />
         </div>
-        <div>
-          <h3 class="font-black uppercase tracking-tighter text-2xl text-[var(--color-foreground)] leading-none mb-2">¡Militancia Confirmada!</h3>
-          <p class="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">Base Orgánica: Comuna de Santiago</p>
+
+        <button type="submit" class="w-full bg-[var(--color-foreground)] text-[var(--color-background)] font-black uppercase tracking-widest py-4 mt-6 hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-[2px_2px_0px_0px_var(--color-primary)]">
+          Consultar Padrón
+        </button>
+      </form>
+    ) : (
+      <form method="POST" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <input type="hidden" name="action" value="register" />
+        <input type="hidden" name="rut" value={currentRut} />
+        
+        <div class="flex items-start gap-4 mb-6 border-b-2 border-dashed border-[var(--color-foreground)] pb-6">
+          <div class="w-12 h-12 bg-green-600 flex items-center justify-center rounded-none border-2 border-[var(--color-foreground)] flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <div>
+            <h3 class="font-black uppercase tracking-tighter text-xl text-[var(--color-foreground)] leading-none mb-1">Padrón Encontrado</h3>
+            <p class="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">RUT Verificado</p>
+          </div>
         </div>
-      </div>
-      
-      <p class="text-sm font-medium mb-6 text-[var(--color-foreground)] leading-relaxed">
-        Hemos encontrado tus datos en el padrón orgánico actual. Se ha enviado un enlace seguro al correo electrónico asociado a tu ficha de inscripción <strong class="text-[var(--color-primary)]">(c***@gmail.com)</strong> para que establezcas tu contraseña de acceso.
-      </p>
-      
-      <button onclick="window.location.href='/login'" class="w-full text-xs font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] bg-[var(--color-background)] py-4 hover:bg-[var(--color-foreground)] hover:text-[var(--color-background)] transition-colors">
-        Entendido, volver al Login
-      </button>
-    </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <label for="name" class="block text-xs font-black uppercase tracking-widest">Nombre</label>
+            <input 
+              type="text" 
+              id="name" 
+              name="name"
+              required
+              value={padronData?.name || ''}
+              class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
+            />
+          </div>
+          <div class="space-y-2">
+            <label for="lastName" class="block text-xs font-black uppercase tracking-widest">Apellido</label>
+            <input 
+              type="text" 
+              id="lastName" 
+              name="lastName"
+              required
+              value={padronData?.lastName || ''}
+              class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label for="email" class="block text-xs font-black uppercase tracking-widest">Correo Electrónico</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email"
+            required
+            class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <label for="password" class="block text-xs font-black uppercase tracking-widest">Crear Contraseña</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password"
+            required
+            class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
+          />
+        </div>
+
+        <button type="submit" class="w-full bg-[var(--color-primary)] text-[var(--color-foreground)] font-black uppercase tracking-widest py-4 mt-6 hover:bg-[var(--color-foreground)] hover:text-[var(--color-background)] transition-colors border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-[2px_2px_0px_0px_var(--color-foreground)]">
+          Activar Cuenta
+        </button>
+      </form>
+    )}
 
   </div>
 </AuthLayout>

@@ -45,6 +45,18 @@ export const sessionTable = sqliteTable('session', {
   expiresAt: integer('expires_at').notNull()
 });
 
+// ---------------------------------------------------------
+// PADRÓN ELECTORAL / MILITANTES (SIMULADO)
+// ---------------------------------------------------------
+
+export const mockPadronTable = sqliteTable('mock_padron', {
+  id: text('id').primaryKey(),
+  rutHash: text('rut_hash').notNull().unique(),
+  name: text('name'),
+  lastName: text('last_name'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
 // Motor de Vigencia Institucional
 export const appointmentTable = sqliteTable('appointment', {
   id: text('id').primaryKey(),

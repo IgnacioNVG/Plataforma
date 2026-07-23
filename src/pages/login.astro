@@ -3,9 +3,10 @@ import AuthLayout from '../layouts/AuthLayout.astro';
 import { db } from '../db';
 import { userTable } from '../db/schema';
 import { eq } from 'drizzle-orm';
-import { Argon2id } from 'oslo/password';
+import bcrypt from 'bcryptjs';
 import { lucia } from '../lib/auth';
-import { hashBlindIndex } from '../lib/crypto';
+import crypto from 'node:crypto';
+import { cleanRut } from '../lib/rut';
 
 // Redirigir si ya está autenticado
 if (Astro.locals.user) {
@@ -30,14 +31,16 @@ if (Astro.request.method === 'POST') {
       if (isEmail) {
         [existingUser] = await db.select().from(userTable).where(eq(userTable.email, identifier.trim().toLowerCase()));
       } else {
-        const hashedRut = hashBlindIndex(identifier);
-        [existingUser] = await db.select().from(userTable).where(eq(userTable.rutHash, hashedRut));
+        const cleanedRut = cleanRut(identifier);
+        const pepper = import.meta.env.BLIND_INDEX_PEPPER || 'default-pepper-123';
+        const rutHash = crypto.createHash('sha256').update(cleanedRut + pepper).digest('hex');
+        [existingUser] = await db.select().from(userTable).where(eq(userTable.rutHash, rutHash));
       }
       
       if (!existingUser) {
         errorMessage = 'Credenciales incorrectas';
       } else {
-        const validPassword = await new Argon2id().verify(existingUser.passwordHash, password);
+        const validPassword = await bcrypt.compare(password, existingUser.passwordHash);
         if (!validPassword) {
           errorMessage = 'Credenciales incorrectas';
         } else {
