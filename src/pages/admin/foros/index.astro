@@ -1,0 +1,76 @@
+---
+import { authorize } from '../../../lib/authz';
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { forumCategoryTable, forumTopicTable } from '../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+
+const canManage = await authorize(user?.id, 'manage', 'forum');
+if (!canManage) {
+  return Astro.redirect('/');
+}
+
+// Fetch categories and count topics
+const categories = await db.select().from(forumCategoryTable);
+const topics = await db.select().from(forumTopicTable);
+
+const categoriesWithStats = categories.map(cat => {
+  const catTopics = topics.filter(t => t.categoryId === cat.id);
+  return {
+    ...cat,
+    topicCount: catTopics.length
+  };
+});
+---
+
+<AppLayout title="Gestor de Foros">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-end mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
+      <div>
+        <h1 class="text-4xl font-black uppercase tracking-tighter">Gestor de Foros</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-1">Administración de Categorías Base</p>
+      </div>
+      <a href="/admin/foros/crear" class="bg-[var(--color-primary)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+        + Nueva Categoría
+      </a>
+    </div>
+
+    <div class="bg-white border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)] overflow-hidden">
+      <table class="w-full text-left">
+        <thead class="bg-[var(--color-foreground)] text-white">
+          <tr>
+            <th class="p-4 text-xs font-black uppercase tracking-widest">Nombre de Categoría</th>
+            <th class="p-4 text-xs font-black uppercase tracking-widest text-center">Temas</th>
+            <th class="p-4 text-xs font-black uppercase tracking-widest text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y-2 divide-[var(--color-border)]">
+          {categoriesWithStats.length === 0 ? (
+            <tr>
+              <td colspan="3" class="p-8 text-center text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest">No hay categorías creadas</td>
+            </tr>
+          ) : (
+            categoriesWithStats.map((cat) => (
+              <tr class="hover:bg-[var(--color-secondary)] transition-colors">
+                <td class="p-4">
+                  <div class="font-black uppercase text-lg">{cat.name}</div>
+                  <div class="text-xs font-medium text-[var(--color-muted-foreground)]">{cat.description}</div>
+                </td>
+                <td class="p-4 text-center font-black">
+                  <span class="bg-[var(--color-foreground)] text-white px-2 py-1 text-xs">
+                    {cat.topicCount}
+                  </span>
+                </td>
+                <td class="p-4 text-right">
+                  <a href={`/admin/foros/editar/${cat.id}`} class="text-xs font-black text-[var(--color-primary)] hover:underline uppercase tracking-widest">Editar</a>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AppLayout>

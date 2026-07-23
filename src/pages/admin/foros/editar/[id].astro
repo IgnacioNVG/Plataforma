@@ -1,0 +1,104 @@
+---
+import { authorize } from '../../../../lib/authz';
+import AppLayout from '../../../../layouts/AppLayout.astro';
+import { db } from '../../../../db';
+import { forumCategoryTable } from '../../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+
+const canManage = await authorize(user?.id, 'manage', 'forum');
+if (!canManage) {
+  return Astro.redirect('/');
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/foros');
+
+const [categoryItem] = await db.select().from(forumCategoryTable).where(eq(forumCategoryTable.id, id));
+if (!categoryItem) return Astro.redirect('/admin/foros');
+
+let errorMessage = '';
+let successMessage = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const name = formData.get('name')?.toString();
+    const description = formData.get('description')?.toString();
+
+    if (!name || !description) {
+      errorMessage = 'El nombre y la descripción son obligatorios.';
+    } else {
+      await db.update(forumCategoryTable)
+        .set({ name, description })
+        .where(eq(forumCategoryTable.id, id));
+        
+      successMessage = 'Categoría actualizada correctamente.';
+      
+      categoryItem.name = name;
+      categoryItem.description = description;
+    }
+  } catch (e) {
+    console.error(e);
+    errorMessage = 'Error al actualizar la categoría.';
+  }
+}
+---
+
+<AppLayout title="Editar Categoría de Foro">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
+      <a href="/admin/foros" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2 mb-4">
+        ← Volver al Gestor
+      </a>
+      <h1 class="text-4xl font-black uppercase tracking-tighter">Editar Categoría</h1>
+    </div>
+
+    {errorMessage && (
+      <div class="bg-red-100 border-l-4 border-red-500 p-4 mb-8 text-red-700 font-bold uppercase tracking-widest text-sm">
+        {errorMessage}
+      </div>
+    )}
+    
+    {successMessage && (
+      <div class="bg-green-100 border-l-4 border-green-500 p-4 mb-8 text-green-700 font-bold uppercase tracking-widest text-sm">
+        {successMessage}
+      </div>
+    )}
+
+    <form method="POST" class="space-y-8">
+      <div class="space-y-2">
+        <label for="name" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Nombre de la Categoría *</label>
+        <input 
+          type="text" 
+          id="name" 
+          name="name" 
+          required 
+          value={categoryItem.name}
+          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 text-xl font-bold focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <label for="description" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción Breve *</label>
+        <textarea 
+          id="description" 
+          name="description" 
+          required
+          rows="3" 
+          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
+        >{categoryItem.description}</textarea>
+      </div>
+
+      <div class="pt-6 border-t-4 border-[var(--color-foreground)] flex justify-end gap-4">
+        <a href="/admin/foros" class="px-6 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-[var(--color-secondary)] transition-colors">
+          Volver
+        </a>
+        <button type="submit" class="bg-[var(--color-primary)] text-white px-8 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0px_0px_var(--color-foreground)] transition-all">
+          Guardar Cambios
+        </button>
+      </div>
+    </form>
+  </div>
+</AppLayout>

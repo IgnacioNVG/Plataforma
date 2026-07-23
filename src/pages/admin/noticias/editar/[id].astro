@@ -1,0 +1,149 @@
+---
+import { authorize } from '../../../../lib/authz';
+import AppLayout from '../../../../layouts/AppLayout.astro';
+import { db } from '../../../../db';
+import { newsTable } from '../../../../db/schema';
+import { eq } from 'drizzle-orm';
+import path from 'path';
+import fs from 'fs/promises';
+import sharp from 'sharp';
+
+const user = Astro.locals.user;
+
+const canManage = await authorize(user?.id, 'manage', 'news');
+if (!canManage) {
+  return Astro.redirect('/');
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/noticias');
+
+const [newsItem] = await db.select().from(newsTable).where(eq(newsTable.id, id));
+if (!newsItem) return Astro.redirect('/admin/noticias');
+
+let errorMessage = '';
+let successMessage = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const title = formData.get('title')?.toString();
+    const content = formData.get('content')?.toString();
+    const image = formData.get('image');
+
+    if (!title || !content) {
+      errorMessage = 'El título y el contenido son obligatorios.';
+    } else {
+      let imageUrl = newsItem.imageUrl;
+
+      if (image && image instanceof File && image.size > 0) {
+        const buffer = await image.arrayBuffer();
+        const fileName = `news-${Date.now()}.webp`;
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+        
+        await fs.mkdir(uploadDir, { recursive: true });
+        
+        await sharp(buffer)
+          .resize(1200, 630, { fit: 'cover' })
+          .webp({ quality: 80 })
+          .toFile(path.join(uploadDir, fileName));
+          
+        imageUrl = `/uploads/${fileName}`;
+      }
+
+      await db.update(newsTable)
+        .set({
+          title,
+          content,
+          imageUrl,
+          // slug not updated to prevent breaking existing links
+        })
+        .where(eq(newsTable.id, id));
+        
+      successMessage = 'Noticia actualizada correctamente.';
+      
+      // Update local object so the form reflects the changes immediately
+      newsItem.title = title;
+      newsItem.content = content;
+      newsItem.imageUrl = imageUrl;
+    }
+  } catch (e) {
+    console.error(e);
+    errorMessage = 'Error al actualizar la noticia.';
+  }
+}
+---
+
+<AppLayout title="Editar Noticia">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
+      <a href="/admin/noticias" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2 mb-4">
+        ← Volver al Gestor
+      </a>
+      <h1 class="text-4xl font-black uppercase tracking-tighter">Editar Noticia</h1>
+    </div>
+
+    {errorMessage && (
+      <div class="bg-red-100 border-l-4 border-red-500 p-4 mb-8 text-red-700 font-bold uppercase tracking-widest text-sm">
+        {errorMessage}
+      </div>
+    )}
+    
+    {successMessage && (
+      <div class="bg-green-100 border-l-4 border-green-500 p-4 mb-8 text-green-700 font-bold uppercase tracking-widest text-sm">
+        {successMessage}
+      </div>
+    )}
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-8">
+      <div class="space-y-2">
+        <label for="title" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Titular</label>
+        <input 
+          type="text" 
+          id="title" 
+          name="title" 
+          required 
+          value={newsItem.title}
+          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 text-2xl font-bold focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <label for="image" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Actualizar Imagen (Opcional)</label>
+        {newsItem.imageUrl && (
+          <div class="mb-4">
+            <p class="text-xs text-gray-500 mb-2 font-bold uppercase tracking-widest">Imagen actual:</p>
+            <img src={newsItem.imageUrl} class="w-64 h-auto border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)]" alt="Current image" />
+          </div>
+        )}
+        <input 
+          type="file" 
+          id="image" 
+          name="image" 
+          accept="image/*"
+          class="w-full bg-[var(--color-background)] border-2 border-dashed border-[var(--color-foreground)] p-8 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <label for="content" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Cuerpo de la Noticia (Soporta HTML básico)</label>
+        <textarea 
+          id="content" 
+          name="content" 
+          required 
+          rows="12" 
+          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
+        >{newsItem.content}</textarea>
+      </div>
+
+      <div class="pt-6 border-t-4 border-[var(--color-foreground)] flex justify-end gap-4">
+        <a href="/admin/noticias" class="px-6 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-[var(--color-secondary)] transition-colors">
+          Volver
+        </a>
+        <button type="submit" class="bg-[var(--color-primary)] text-white px-8 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0px_0px_var(--color-foreground)] transition-all">
+          Guardar Cambios
+        </button>
+      </div>
+    </form>
+  </div>
+</AppLayout>

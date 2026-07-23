@@ -1,0 +1,174 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { forumCategoryTable, forumTopicTable, forumReplyTable, userTable } from '../../../db/schema';
+import { eq, asc } from 'drizzle-orm';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/foros');
+
+const [topic] = await db.select().from(forumTopicTable).where(eq(forumTopicTable.id, id));
+if (!topic) return Astro.redirect('/foros');
+
+const [category] = await db.select().from(forumCategoryTable).where(eq(forumCategoryTable.id, topic.categoryId));
+const [author] = await db.select().from(userTable).where(eq(userTable.id, topic.authorId));
+
+const rawReplies = await db.select().from(forumReplyTable)
+  .where(eq(forumReplyTable.topicId, topic.id))
+  .orderBy(asc(forumReplyTable.createdAt));
+
+const replies = await Promise.all(rawReplies.map(async (reply) => {
+  const [replyAuthor] = await db.select().from(userTable).where(eq(userTable.id, reply.authorId));
+  return {
+    ...reply,
+    authorName: replyAuthor ? `${replyAuthor.name} ${replyAuthor.lastName}` : 'Usuario Desconocido',
+    authorAvatar: replyAuthor?.avatarUrl || null
+  };
+}));
+
+const user = Astro.locals.user;
+let errorMessage = '';
+
+if (Astro.request.method === 'POST') {
+  if (!user) return Astro.redirect('/login');
+  
+  try {
+    const formData = await Astro.request.formData();
+    const content = formData.get('content')?.toString();
+
+    if (!content) {
+      errorMessage = 'El mensaje no puede estar vacío.';
+    } else {
+      await db.insert(forumReplyTable).values({
+        id: crypto.randomUUID(),
+        topicId: topic.id,
+        content,
+        authorId: user.id
+      });
+      // Redirect to same page to clear POST data and show new reply
+      return Astro.redirect(`/foros/tema/${topic.id}`);
+    }
+  } catch (e) {
+    console.error(e);
+    errorMessage = 'Error al publicar la respuesta.';
+  }
+}
+---
+
+<AppLayout title={topic.title}>
+  <div class="max-w-5xl mx-auto">
+    <!-- Breadcrumb & Header -->
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
+      <div class="flex gap-2 text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mb-4">
+        <a href="/foros" class="hover:text-[var(--color-foreground)]">Foros</a>
+        <span>/</span>
+        <a href={`/foros/${category.id}`} class="hover:text-[var(--color-foreground)]">{category.name}</a>
+      </div>
+      <h1 class="text-4xl font-black uppercase tracking-tighter leading-tight">{topic.title}</h1>
+    </div>
+
+    <!-- Hilo (Posts) -->
+    <div class="space-y-6 mb-12">
+      
+      <!-- Post Original -->
+      <article class="flex flex-col md:flex-row border-4 border-[var(--color-foreground)] bg-white shadow-[8px_8px_0px_0px_var(--color-primary)]">
+        <!-- Author Sidebar -->
+        <div class="md:w-48 bg-[var(--color-secondary)] p-4 border-b-4 md:border-b-0 md:border-r-4 border-[var(--color-foreground)] flex flex-col items-center text-center">
+          <div class="w-20 h-20 bg-white border-2 border-[var(--color-foreground)] mb-3 overflow-hidden shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+            {author?.avatarUrl ? (
+              <img src={author.avatarUrl} alt="Avatar" class="w-full h-full object-cover" />
+            ) : (
+              <div class="w-full h-full bg-gray-400 flex items-center justify-center text-2xl font-black text-white uppercase">
+                {(author?.name || 'U').charAt(0)}{(author?.lastName || 'S').charAt(0)}
+              </div>
+            )}
+          </div>
+          <p class="font-black text-sm uppercase leading-tight">{author ? `${author.name} ${author.lastName}` : 'Desconocido'}</p>
+          <p class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest mt-1">Autor del Tema</p>
+        </div>
+        
+        <!-- Post Content -->
+        <div class="flex-1 flex flex-col">
+          <div class="p-4 border-b-2 border-[var(--color-border)] flex justify-between items-center text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">
+            <span>{new Date(topic.createdAt).toLocaleString('es-CL')}</span>
+            <span>#1</span>
+          </div>
+          <div class="p-6 font-medium text-[var(--color-foreground)] whitespace-pre-wrap leading-relaxed">
+            {topic.content}
+          </div>
+        </div>
+      </article>
+
+      <!-- Respuestas -->
+      {replies.map((reply, index) => (
+        <article class="flex flex-col md:flex-row border-2 border-[var(--color-border)] bg-[var(--color-background)] ml-0 md:ml-12 shadow-[4px_4px_0px_0px_var(--color-border)] hover:border-[var(--color-foreground)] hover:shadow-[4px_4px_0px_0px_var(--color-foreground)] transition-all">
+          <!-- Author Sidebar -->
+          <div class="md:w-40 bg-[var(--color-secondary)] p-4 border-b-2 md:border-b-0 md:border-r-2 border-[var(--color-border)] flex flex-col items-center text-center">
+            <div class="w-16 h-16 bg-white border-2 border-[var(--color-foreground)] mb-3 overflow-hidden">
+              {reply.authorAvatar ? (
+                <img src={reply.authorAvatar} alt="Avatar" class="w-full h-full object-cover" />
+              ) : (
+                <div class="w-full h-full bg-gray-300 flex items-center justify-center text-xl font-black text-white uppercase">
+                  {reply.authorName.split(' ').map(n => n[0]).join('').substring(0,2)}
+                </div>
+              )}
+            </div>
+            <p class="font-black text-xs uppercase leading-tight">{reply.authorName}</p>
+          </div>
+          
+          <!-- Post Content -->
+          <div class="flex-1 flex flex-col">
+            <div class="p-3 border-b border-[var(--color-border)] flex justify-between items-center text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">
+              <span>{new Date(reply.createdAt).toLocaleString('es-CL')}</span>
+              <span>#{index + 2}</span>
+            </div>
+            <div class="p-5 font-medium text-[var(--color-foreground)] whitespace-pre-wrap leading-relaxed text-sm">
+              {reply.content}
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <!-- Caja de Respuesta -->
+    {user ? (
+      <div class="border-4 border-[var(--color-foreground)] bg-white p-6 shadow-[8px_8px_0px_0px_var(--color-foreground)] relative">
+        <div class="absolute -top-3 -left-3 bg-[var(--color-primary)] text-white px-3 py-1 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)]">
+          Participar
+        </div>
+        
+        {errorMessage && (
+          <div class="bg-red-100 border-l-4 border-red-500 p-3 mb-4 text-red-700 font-bold uppercase tracking-widest text-xs mt-4">
+            {errorMessage}
+          </div>
+        )}
+        
+        <form method="POST" class="mt-4">
+          <div class="flex flex-col gap-4">
+            <textarea 
+              name="content" 
+              required
+              rows="5" 
+              class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] focus:bg-white transition-colors"
+              placeholder="Escribe tu respuesta aquí..."
+            ></textarea>
+            
+            <div class="flex justify-end">
+              <button type="submit" class="bg-[var(--color-foreground)] text-white px-8 py-3 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all">
+                Publicar Respuesta
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    ) : (
+      <div class="border-2 border-[var(--color-border)] bg-[var(--color-secondary)] p-8 text-center">
+        <p class="font-black uppercase tracking-widest text-lg mb-2">Debes iniciar sesión para participar</p>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mb-6">Únete al debate de la militancia.</p>
+        <a href="/login" class="bg-[var(--color-primary)] text-white px-8 py-3 font-black uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] inline-block hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+          Iniciar Sesión
+        </a>
+      </div>
+    )}
+  </div>
+</AppLayout>

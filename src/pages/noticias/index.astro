@@ -1,5 +1,30 @@
 ---
+import { authorize } from '../../lib/authz';
 import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { newsTable, userTable } from '../../db/schema';
+import { desc, eq } from 'drizzle-orm';
+
+// Fetch all news ordered by latest
+const allNews = await db.select({
+  id: newsTable.id,
+  title: newsTable.title,
+  slug: newsTable.slug,
+  content: newsTable.content,
+  imageUrl: newsTable.imageUrl,
+  publishedAt: newsTable.publishedAt,
+  authorName: userTable.name,
+  authorLastName: userTable.lastName
+})
+.from(newsTable)
+.leftJoin(userTable, eq(newsTable.authorId, userTable.id))
+.orderBy(desc(newsTable.publishedAt));
+
+const mainNews = allNews.length > 0 ? allNews[0] : null;
+const secondaryNews = allNews.length > 1 ? allNews.slice(1, 5) : [];
+
+const user = Astro.locals.user;
+const canEdit = await authorize(user?.id, 'manage', 'news');
 ---
 
 <AppLayout title="Noticias">
@@ -10,79 +35,94 @@ import AppLayout from '../../layouts/AppLayout.astro';
         <h1 class="text-5xl font-bold text-[var(--color-foreground)] font-serif tracking-tighter">EL BOLETÍN</h1>
         <p class="text-sm font-medium text-[var(--color-muted-foreground)] mt-2 uppercase tracking-widest">Órgano Informativo de la Juventud Socialista</p>
       </div>
-      <div class="text-right hidden md:block">
-        <span class="text-sm font-bold block">{new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-        <span class="text-xs text-[var(--color-muted-foreground)]">Edición Digital</span>
+      <div class="flex items-center gap-6">
+        <div class="text-right hidden md:block">
+          <span class="text-sm font-bold block">{new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          <span class="text-xs text-[var(--color-muted-foreground)]">Edición Digital</span>
+        </div>
+        {canEdit && (
+          <div class="flex gap-2">
+            <a href="/admin/noticias" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+              ⚙️ Gestor
+            </a>
+            <a href="/admin/noticias/crear" class="bg-[var(--color-primary)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+              + Publicar
+            </a>
+          </div>
+        )}
       </div>
     </div>
 
     <!-- Menú Categorías -->
     <div class="flex flex-wrap gap-4 mb-10 border-b border-[var(--color-border)] pb-4">
-      <a href="#" class="text-sm font-bold bg-[var(--color-foreground)] text-white px-3 py-1 rounded-[var(--radius-sm)]">Titulares</a>
-      <a href="#" class="text-sm font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Nacional</a>
-      <a href="#" class="text-sm font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Regionales</a>
-      <a href="#" class="text-sm font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Frentes de Masas</a>
-      <a href="#" class="text-sm font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Opinión</a>
+      <a href="#" class="text-sm font-bold bg-[var(--color-foreground)] text-white px-3 py-1 rounded-none">Titulares</a>
+      <a href="#" class="text-sm font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Nacional</a>
+      <a href="#" class="text-sm font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Regionales</a>
+      <a href="#" class="text-sm font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] px-3 py-1">Frentes de Masas</a>
     </div>
 
-    <!-- Layout Asimétrico Periódico -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      
-      <!-- Noticia Principal (8 columnas) -->
-      <a href="/noticias/1" class="lg:col-span-8 block group cursor-pointer border-r border-[var(--color-border)] pr-8">
-        <article>
-          <div class="w-full h-80 bg-[var(--color-secondary)] mb-6 overflow-hidden border-2 border-[var(--color-foreground)]">
-            <div class="w-full h-full bg-gray-400 group-hover:scale-105 transition-transform duration-500 flex items-center justify-center">
-              <span class="font-bold text-gray-600 uppercase tracking-widest">Imagen</span>
-            </div>
-          </div>
-          
-          <div class="flex items-center gap-3 mb-4">
-            <span class="bg-[var(--color-primary)] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-widest">Nacional</span>
-            <span class="text-xs text-[var(--color-muted-foreground)] flex items-center gap-1 font-bold">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              Lectura: 5 min
-            </span>
-          </div>
-          
-          <h2 class="text-4xl font-bold mb-4 leading-tight group-hover:underline decoration-2">Histórico Encuentro Nacional define la nueva hoja de ruta programática</h2>
-          <p class="text-lg text-[var(--color-muted-foreground)] mb-6 leading-relaxed font-medium">Con la participación de delegados de todas las regiones del país, el Comité Central resolvió las principales líneas de acción para el próximo semestre, enfocándose en la formación política y el despliegue territorial continuo.</p>
-          
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-none border border-[var(--color-foreground)] bg-[var(--color-border)]"></div>
-            <span class="text-sm font-bold uppercase tracking-widest">Por Mesa Directiva Nacional</span>
-          </div>
-        </article>
-      </a>
+    {allNews.length === 0 ? (
+      <div class="py-20 text-center border-4 border-dashed border-[var(--color-border)] bg-[var(--color-secondary)]">
+        <h3 class="text-2xl font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">No hay noticias publicadas</h3>
+        <p class="text-sm font-bold mt-2">El comité editorial aún no ha publicado comunicados.</p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {mainNews && (
+          <a href={`/noticias/${mainNews.slug}`} class="lg:col-span-8 block group cursor-pointer lg:border-r border-[var(--color-border)] lg:pr-8">
+            <article>
+              {mainNews.imageUrl ? (
+                <div class="w-full mb-6 border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] group-hover:shadow-[2px_2px_0px_0px_var(--color-primary)] group-hover:translate-x-1 group-hover:translate-y-1 transition-all">
+                  <img src={mainNews.imageUrl} alt={mainNews.title} class="w-full h-80 object-cover" />
+                </div>
+              ) : (
+                <div class="w-full h-40 bg-[var(--color-secondary)] mb-6 border-2 border-dashed border-[var(--color-foreground)] flex items-center justify-center">
+                  <span class="font-black text-gray-400 uppercase tracking-widest text-2xl">Titular</span>
+                </div>
+              )}
+              
+              <div class="flex items-center gap-3 mb-4">
+                <span class="bg-[var(--color-primary)] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-widest">Destacado</span>
+                <span class="text-xs text-[var(--color-muted-foreground)] font-bold">{new Date(mainNews.publishedAt).toLocaleDateString('es-CL')}</span>
+              </div>
+              
+              <h2 class="text-4xl font-bold mb-4 leading-tight group-hover:underline decoration-[var(--color-primary)] decoration-4 uppercase tracking-tighter">{mainNews.title}</h2>
+              <p class="text-lg text-[var(--color-muted-foreground)] mb-6 leading-relaxed font-medium line-clamp-3">
+                {mainNews.content.replace(/<[^>]*>?/gm, '')}
+              </p>
+              
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-black uppercase tracking-widest text-[var(--color-foreground)] bg-[var(--color-secondary)] px-2 py-1 border border-[var(--color-border)]">Por {mainNews.authorName} {mainNews.authorLastName}</span>
+              </div>
+            </article>
+          </a>
+        )}
 
-      <!-- Noticias Secundarias (4 columnas) -->
-      <aside class="lg:col-span-4 flex flex-col gap-8">
-        
-        <!-- Noticia Secundaria -->
-        <article class="group cursor-pointer">
-          <div class="flex gap-2 mb-2">
-            <span class="text-[10px] font-bold text-[var(--color-primary)] uppercase">Opinión</span>
-          </div>
-          <h3 class="text-xl font-bold mb-2 group-hover:underline">El rol de las juventudes en el nuevo escenario constitucional</h3>
-          <p class="text-sm text-[var(--color-muted-foreground)] line-clamp-3 mb-2">Un análisis profundo sobre las perspectivas de participación e incidencia de los movimientos sociales frente a los desafíos legislativos actuales.</p>
-          <span class="text-xs text-[var(--color-muted-foreground)] font-medium">Hace 2 horas</span>
-        </article>
-        
-        <div class="h-px w-full bg-[var(--color-border)]"></div>
-
-        <!-- Noticia Secundaria -->
-        <article class="group cursor-pointer">
-          <div class="flex gap-2 mb-2">
-            <span class="text-[10px] font-bold text-[var(--color-primary)] uppercase">Regional</span>
-          </div>
-          <div class="w-full h-32 bg-[var(--color-secondary)] mb-3 overflow-hidden">
-             <div class="w-full h-full bg-gray-300 group-hover:scale-105 transition-transform duration-500"></div>
-          </div>
-          <h3 class="text-lg font-bold mb-2 group-hover:underline">Constitución de nueva asamblea en Valparaíso</h3>
-          <span class="text-xs text-[var(--color-muted-foreground)] font-medium">Ayer</span>
-        </article>
-        
-      </aside>
-    </div>
+        <aside class="lg:col-span-4 flex flex-col gap-8">
+          {secondaryNews.map((news, index) => (
+            <Fragment key={news.id}>
+              <article class="group cursor-pointer">
+                <a href={`/noticias/${news.slug}`} class="block">
+                  <div class="flex gap-2 mb-2">
+                    <span class="text-[10px] font-bold text-[var(--color-foreground)] border border-[var(--color-border)] px-1 uppercase">{new Date(news.publishedAt).toLocaleDateString('es-CL')}</span>
+                  </div>
+                  
+                  {news.imageUrl && (
+                    <div class="w-full h-32 mb-3 border-2 border-[var(--color-foreground)] overflow-hidden">
+                       <img src={news.imageUrl} alt={news.title} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                  )}
+                  
+                  <h3 class="text-xl font-bold mb-2 group-hover:underline decoration-2 decoration-[var(--color-primary)] uppercase tracking-tight leading-tight">{news.title}</h3>
+                  <p class="text-sm text-[var(--color-muted-foreground)] line-clamp-2 mb-2 font-medium">{news.content.replace(/<[^>]*>?/gm, '')}</p>
+                </a>
+              </article>
+              {index < secondaryNews.length - 1 && <div class="h-px w-full bg-[var(--color-border)] border-dashed border-b-2"></div>}
+            </Fragment>
+          ))}
+        </aside>
+      </div>
+    )}
   </div>
 </AppLayout>

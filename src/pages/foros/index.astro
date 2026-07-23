@@ -1,101 +1,90 @@
 ---
+import { authorize } from '../../lib/authz';
 import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { forumCategoryTable, forumTopicTable } from '../../db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+const canEdit = await authorize(user?.id, 'manage', 'forum');
+
+const categories = await db.select().from(forumCategoryTable);
+const topics = await db.select().from(forumTopicTable).orderBy(desc(forumTopicTable.createdAt));
+
+const categoriesWithStats = categories.map(cat => {
+  const catTopics = topics.filter(t => t.categoryId === cat.id);
+  const latestTopic = catTopics.length > 0 ? catTopics[0] : null;
+  return {
+    ...cat,
+    topicCount: catTopics.length,
+    latestTopic
+  };
+});
 ---
 
 <AppLayout title="Foros de Debate">
-  <div class="max-w-4xl mx-auto">
-    <!-- Header Foros -->
-    <div class="mb-8 flex justify-between items-center">
+  <div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-[var(--color-foreground)]">Foros de Debate</h1>
-        <p class="text-[var(--color-muted-foreground)] mt-1">Espacio de discusión política y programática</p>
+        <h1 class="text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter">Debate Interno</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-2 border-l-4 border-[var(--color-primary)] pl-3">Foros orgánicos y discusión política</p>
       </div>
-      <button class="bg-[var(--color-foreground)] text-white px-4 py-2 font-bold text-sm hover:bg-[var(--color-primary)] transition-colors rounded-[var(--radius-sm)]">
-        + Nuevo Tema
-      </button>
+      <div>
+        {canEdit && (
+          <a href="/admin/foros" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+            ⚙️ Gestor de Categorías
+          </a>
+        )}
+      </div>
     </div>
 
-    <!-- Filtros tipo Reddit -->
-    <div class="flex items-center gap-4 bg-[var(--color-secondary)] p-2 rounded-[var(--radius-sm)] mb-6 border border-[var(--color-border)]">
-      <button class="flex items-center gap-2 bg-[var(--color-background)] text-[var(--color-foreground)] px-3 py-1.5 rounded-[var(--radius-sm)] font-bold text-sm shadow-sm border border-[var(--color-border)]">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
-        Populares
-      </button>
-      <button class="flex items-center gap-2 text-[var(--color-muted-foreground)] hover:bg-[var(--color-border)] px-3 py-1.5 rounded-[var(--radius-sm)] font-medium text-sm transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        Recientes
-      </button>
-      <button class="flex items-center gap-2 text-[var(--color-muted-foreground)] hover:bg-[var(--color-border)] px-3 py-1.5 rounded-[var(--radius-sm)] font-medium text-sm transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-        Con más respuestas
-      </button>
-    </div>
+    <div class="bg-white border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)]">
+      <div class="hidden md:grid grid-cols-12 gap-4 border-b-4 border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white p-4">
+        <div class="col-span-6 font-black text-xs uppercase tracking-widest">Categoría</div>
+        <div class="col-span-2 font-black text-xs uppercase tracking-widest text-center">Temas</div>
+        <div class="col-span-4 font-black text-xs uppercase tracking-widest">Última Actividad</div>
+      </div>
 
-    <!-- Lista de Hilos -->
-    <div class="flex flex-col gap-4">
-      
-      <!-- Hilo (Post) -->
-      <article class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-[var(--radius-sm)] p-4 flex gap-4 hover:border-[var(--color-foreground)] transition-colors">
-        <!-- Votos / Interacciones -->
-        <div class="flex flex-col items-center justify-start gap-1 flex-shrink-0 pt-1">
-          <button class="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)]">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-          </button>
-          <span class="font-bold text-sm">142</span>
-          <button class="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)]">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-          </button>
-        </div>
-        
-        <!-- Contenido -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="font-bold text-[var(--color-foreground)] text-xs hover:underline cursor-pointer">c/Ideología</span>
-            <span class="text-[var(--color-muted-foreground)] text-xs">• Publicado por <span class="hover:underline cursor-pointer font-medium">@crojas</span> hace 5 horas</span>
-          </div>
-          
-          <h2 class="text-xl font-bold text-[var(--color-foreground)] mb-2 leading-snug cursor-pointer">Reevaluando el concepto de "Estado de Bienestar" en el contexto latinoamericano</h2>
-          
-          <div class="flex items-center gap-4 mt-3">
-            <button class="flex items-center gap-1.5 text-xs font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)] px-2 py-1 rounded-[var(--radius-sm)] transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-              48 Comentarios
-            </button>
-            <button class="flex items-center gap-1.5 text-xs font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)] px-2 py-1 rounded-[var(--radius-sm)] transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
-              Compartir
-            </button>
-          </div>
-        </div>
-      </article>
-
-      <!-- Hilo Anclado -->
-      <article class="bg-[#FFFDF5] border border-[#E5E0C5] rounded-[var(--radius-sm)] p-4 flex gap-4 hover:border-[var(--color-foreground)] transition-colors">
-        <!-- Votos / Interacciones -->
-        <div class="flex flex-col items-center justify-start gap-1 flex-shrink-0 pt-1">
-          <svg class="w-6 h-6 text-[#C8102E]" fill="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"></path></svg>
-          <span class="font-bold text-sm text-[#C8102E]">956</span>
-        </div>
-        
-        <!-- Contenido -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="bg-[#C8102E] text-white text-[9px] px-1.5 py-0.5 uppercase font-bold tracking-widest rounded-sm">Anclado</span>
-            <span class="font-bold text-[var(--color-foreground)] text-xs hover:underline cursor-pointer">c/Anuncios</span>
-            <span class="text-[var(--color-muted-foreground)] text-xs">• Publicado por <span class="hover:underline cursor-pointer font-bold text-[var(--color-foreground)]">Directiva Nacional</span></span>
-          </div>
-          
-          <h2 class="text-xl font-bold text-[var(--color-foreground)] mb-2 leading-snug cursor-pointer">Reglamento interno de uso de Foros y Normas de Convivencia Digital</h2>
-          
-          <div class="flex items-center gap-4 mt-3">
-            <button class="flex items-center gap-1.5 text-xs font-bold text-[var(--color-muted-foreground)] hover:bg-[#F0EDD5] px-2 py-1 rounded-[var(--radius-sm)] transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-              Cerrado a comentarios
-            </button>
-          </div>
-        </div>
-      </article>
-
+      <div class="divide-y-2 divide-[var(--color-border)]">
+        {categoriesWithStats.length === 0 ? (
+          <div class="p-8 text-center text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest">No hay foros abiertos aún</div>
+        ) : (
+          categoriesWithStats.map(cat => (
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 hover:bg-[var(--color-secondary)] transition-colors group">
+              <div class="col-span-1 md:col-span-6">
+                <a href={`/foros/${cat.id}`} class="text-xl font-black uppercase tracking-tight text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors block w-full">
+                  {cat.name}
+                </a>
+                <p class="text-sm font-medium text-[var(--color-muted-foreground)] mt-1">{cat.description}</p>
+              </div>
+              
+              <div class="col-span-1 md:col-span-2 flex md:justify-center items-center">
+                <span class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-3 py-1 text-xs font-black">
+                  {cat.topicCount} Temas
+                </span>
+              </div>
+              
+              <div class="col-span-1 md:col-span-4 flex flex-col justify-center">
+                {cat.latestTopic ? (
+                  <>
+                    <a href={`/foros/tema/${cat.latestTopic.id}`} class="text-sm font-bold truncate hover:underline text-[var(--color-foreground)]">
+                      {cat.latestTopic.title}
+                    </a>
+                    <span class="text-xs font-bold text-[var(--color-muted-foreground)] mt-1 uppercase tracking-widest">
+                      Última public. hace {Math.floor((new Date().getTime() - new Date(cat.latestTopic.createdAt).getTime()) / (1000 * 3600 * 24))} días
+                    </span>
+                  </>
+                ) : (
+                  <span class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest italic">
+                    Sin actividad
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   </div>
 </AppLayout>

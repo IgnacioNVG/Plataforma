@@ -1,0 +1,131 @@
+---
+import { authorize } from '../../../lib/authz';
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { newsTable } from '../../../db/schema';
+import fs from 'node:fs';
+import path from 'node:path';
+import sharp from 'sharp';
+
+const user = Astro.locals.user;
+const canManage = await authorize(user?.id, 'manage', 'news');
+if (!canManage) {
+  return Astro.redirect('/');
+}
+
+let errorMessage = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const title = formData.get('title') as string;
+    const content = formData.get('content') as string;
+    const image = formData.get('image');
+
+    if (!title || !content) {
+      errorMessage = 'El título y el contenido son obligatorios.';
+    } else {
+      // Create slug
+      const slug = title
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // remove accents
+        .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with hyphen
+        .replace(/(^-|-$)+/g, ''); // trim hyphens
+
+      let imageUrl = null;
+
+      if (image && image instanceof File && image.size > 0) {
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'news');
+        await fs.promises.mkdir(uploadDir, { recursive: true });
+        
+        const fileName = `${slug}-${Date.now()}.webp`;
+        const filePath = path.join(uploadDir, fileName);
+        
+        const arrayBuffer = await image.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Optimize image for news cover (e.g., 1200x630 aspect ratio for sharing)
+        await sharp(buffer)
+          .resize(1200, 630, { fit: 'cover' })
+          .webp({ quality: 85 })
+          .toFile(filePath);
+          
+        imageUrl = `/uploads/news/${fileName}`;
+      }
+
+      await db.insert(newsTable).values({
+        id: crypto.randomUUID(),
+        title,
+        slug,
+        content,
+        imageUrl,
+        authorId: user.id
+      });
+
+      return Astro.redirect('/admin/noticias');
+    }
+  } catch (e) {
+    console.error(e);
+    // Podría fallar si el slug ya existe (unique constraint)
+    errorMessage = 'Error al publicar la noticia. Es posible que el título (slug) ya exista.';
+  }
+}
+---
+
+<AppLayout title="Redactar Noticia - Panel Admin">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-6 flex items-center justify-between">
+      <div>
+        <a href="/admin/noticias" class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] flex items-center gap-2 mb-4">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Volver al Gestor
+        </a>
+        <h1 class="text-4xl font-black uppercase tracking-tight text-[var(--color-foreground)]">Redactar<br/>Noticia</h1>
+      </div>
+    </div>
+
+    {errorMessage && (
+      <div class="px-4 py-3 font-bold text-sm mb-6 uppercase tracking-widest border-2 bg-red-100 border-red-500 text-red-700 shadow-[4px_4px_0px_0px_red]">
+        {errorMessage}
+      </div>
+    )}
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-8">
+      
+      <!-- Titular -->
+      <div class="space-y-2">
+        <label for="title" class="block text-xs font-black uppercase tracking-widest border-l-4 border-[var(--color-primary)] pl-2">Titular Principal</label>
+        <input type="text" id="title" name="title" required placeholder="Ej: Histórico Encuentro Nacional define..." class="w-full border-2 border-[var(--color-foreground)] px-4 py-4 text-xl font-bold focus:outline-none focus:border-[var(--color-primary)]" />
+      </div>
+
+      <!-- Imagen -->
+      <div class="space-y-2">
+        <label class="block text-xs font-black uppercase tracking-widest border-l-4 border-[var(--color-primary)] pl-2">Imagen de Portada (Opcional)</label>
+        <div class="bg-[var(--color-secondary)] border-2 border-dashed border-[var(--color-border)] p-8 text-center relative hover:bg-[var(--color-background)] transition-colors cursor-pointer group">
+          <input type="file" id="image" name="image" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+          <div class="space-y-2">
+            <svg class="w-8 h-8 mx-auto text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <p class="font-bold text-sm uppercase tracking-widest">Haz clic o arrastra una imagen aquí</p>
+            <p class="text-[10px] font-medium text-[var(--color-muted-foreground)]">Se optimizará automáticamente a formato apaisado (WebP)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cuerpo -->
+      <div class="space-y-2">
+        <label for="content" class="block text-xs font-black uppercase tracking-widest border-l-4 border-[var(--color-primary)] pl-2">Cuerpo de la Noticia</label>
+        <p class="text-[10px] text-[var(--color-muted-foreground)] font-bold uppercase pb-2">Puedes usar formato texto enriquecido simple (HTML permitido).</p>
+        <textarea id="content" name="content" rows="15" required placeholder="Escribe el desarrollo de la noticia aquí..." class="w-full border-2 border-[var(--color-foreground)] px-4 py-4 text-sm font-medium focus:outline-none focus:border-[var(--color-primary)] leading-relaxed"></textarea>
+      </div>
+
+      <!-- Submit -->
+      <div class="pt-6 border-t-4 border-[var(--color-foreground)] flex justify-end">
+        <button type="submit" class="bg-[var(--color-foreground)] text-white px-10 py-5 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-[4px_4px_0px_0px_var(--color-primary)]">
+          Publicar Noticia Oficial
+        </button>
+      </div>
+
+    </form>
+  </div>
+</AppLayout>

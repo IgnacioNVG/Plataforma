@@ -1,125 +1,119 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
+import OrgNode from '../../components/OrgNode.astro';
+import { db } from '../../db';
+import { organizationTable, appointmentTable, userTable, positionTypeTable } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+import { authorize } from '../../lib/authz';
+
+// Permisos de Administración
+const user = Astro.locals.user;
+const canManageOrg = await authorize(user?.id, 'manage', 'organization');
+
+// 1. Cargar Todos los Órganos
+const orgs = await db.select().from(organizationTable).all();
+
+// 2. Cargar Nombramientos Vigentes
+const activeAppointments = await db.select({
+  orgId: appointmentTable.organizationId,
+  user: {
+    id: userTable.id,
+    name: userTable.name,
+    lastName: userTable.lastName,
+    avatarUrl: userTable.avatarUrl,
+    email: userTable.email,
+  },
+  position: positionTypeTable.title,
+  resolution: appointmentTable.resolutionRef
+})
+.from(appointmentTable)
+.innerJoin(userTable, eq(appointmentTable.userId, userTable.id))
+.innerJoin(positionTypeTable, eq(appointmentTable.positionTypeId, positionTypeTable.id))
+.where(eq(appointmentTable.status, 'activo'))
+.all();
+
+// 3. Ensamblaje del Árbol (Graph)
+interface Node {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  authorities: typeof activeAppointments;
+  children: Node[];
+}
+
+const nodeMap = new Map<string, Node>();
+const treeRoots: Node[] = [];
+
+orgs.forEach(o => {
+  nodeMap.set(o.id, {
+    id: o.id,
+    name: o.name,
+    type: o.type,
+    description: o.description,
+    authorities: activeAppointments.filter(a => a.orgId === o.id),
+    children: []
+  });
+});
+
+orgs.forEach(o => {
+  const node = nodeMap.get(o.id)!;
+  if (o.parentId && nodeMap.has(o.parentId)) {
+    nodeMap.get(o.parentId)!.children.push(node);
+  } else {
+    treeRoots.push(node);
+  }
+});
 ---
 
 <AppLayout title="Directorio Militante">
-  <div class="mb-8 flex justify-between items-end border-b border-[var(--color-foreground)] pb-6">
-    <div>
-      <h1 class="text-4xl font-bold text-[var(--color-foreground)]">Directorio Nacional</h1>
-      <p class="text-[var(--color-muted-foreground)] mt-2">Buscador de autoridades, dirigentes y cuadros orgánicos.</p>
-    </div>
-    <div class="relative w-full md:w-80">
-      <input type="text" placeholder="Buscar por nombre o cargo..." class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-secondary)] transition-all rounded-none" />
-    </div>
-  </div>
-
-  <!-- Filtros -->
-  <div class="flex flex-wrap gap-4 mb-8">
-    <select class="bg-[var(--color-secondary)] border border-[var(--color-border)] px-4 py-2 text-sm font-bold focus:outline-none cursor-pointer">
-      <option>Región</option>
-      <option>Metropolitana</option>
-      <option>Valparaíso</option>
-      <option>Biobío</option>
-    </select>
-    <select class="bg-[var(--color-secondary)] border border-[var(--color-border)] px-4 py-2 text-sm font-bold focus:outline-none cursor-pointer">
-      <option>Rol</option>
-      <option>Comité Central</option>
-      <option>Directiva Nacional</option>
-      <option>Comunal</option>
-    </select>
-  </div>
-
-  <!-- Grilla de Directorio -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div class="max-w-6xl mx-auto">
     
-    <!-- Tarjeta de Perfil: Presidente -->
-    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
-      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
-        <div class="w-full h-full bg-gray-400 group-hover:scale-110 transition-transform"></div>
-      </div>
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-6">
       <div>
-        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Francisco Saba</h3>
-        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Presidente Nacional</p>
-        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
-        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
-          Enviar Mensaje
-        </button>
+        <h1 class="text-4xl md:text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">
+          Directorio<br/>Institucional
+        </h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">
+          Estructura Orgánica y Autoridades Vigentes
+        </p>
       </div>
-    </div>
-    
-    <!-- Tarjeta de Perfil: Secretario General -->
-    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
-      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
-        <div class="w-full h-full bg-gray-300 group-hover:scale-110 transition-transform"></div>
-      </div>
-      <div>
-        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Ignacio Figueroa</h3>
-        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Secretario General</p>
-        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
-        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
-          Enviar Mensaje
-        </button>
+      
+      <div class="flex flex-col gap-3 w-full md:w-auto">
+        <div class="relative w-full md:w-80">
+          <input type="text" placeholder="Buscar órgano, nombre o cargo..." class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" />
+        </div>
+        {canManageOrg && (
+          <a href="/admin/directorio/organos/crear" class="bg-[var(--color-foreground)] text-[var(--color-background)] px-4 py-3 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all text-center">
+            + CREAR ÓRGANO RAÍZ
+          </a>
+        )}
       </div>
     </div>
 
-    <!-- Tarjeta de Perfil: Vicepresidenta de la mujer -->
-    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
-      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
-        <div class="w-full h-full bg-gray-400 group-hover:scale-110 transition-transform"></div>
-      </div>
-      <div>
-        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Gabriela Carrera</h3>
-        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidenta de la Mujer</p>
-        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
-        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
-          Enviar Mensaje
-        </button>
-      </div>
+    <!-- Filtros de Navegación -->
+    <div class="flex flex-wrap gap-4 mb-10 border-b border-[var(--color-border)] pb-4">
+      <a href="#" class="text-sm font-black uppercase tracking-widest bg-[var(--color-foreground)] text-white px-4 py-2 border-2 border-[var(--color-foreground)]">Vista Jerárquica</a>
+      <a href="#" class="text-sm font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] bg-[var(--color-secondary)] border-2 border-[var(--color-border)] hover:border-[var(--color-foreground)] px-4 py-2 transition-colors">Vista Listado</a>
     </div>
 
-    <!-- Tarjeta de Perfil: Vicepresidente -->
-    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
-      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
-        <div class="w-full h-full bg-gray-300 group-hover:scale-110 transition-transform"></div>
-      </div>
-      <div>
-        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Simon González</h3>
-        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidente</p>
-        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
-        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
-          Enviar Mensaje
-        </button>
-      </div>
-    </div>
-
-    <!-- Tarjeta de Perfil: Vicepresidenta -->
-    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
-      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
-        <div class="w-full h-full bg-gray-400 group-hover:scale-110 transition-transform"></div>
-      </div>
-      <div>
-        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Sofía Muñoz</h3>
-        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidenta</p>
-        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
-        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
-          Enviar Mensaje
-        </button>
-      </div>
-    </div>
-
-    <!-- Tarjeta de Perfil: Vicepresidente -->
-    <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)] flex gap-4 hover:border-[var(--color-foreground)] transition-colors group">
-      <div class="w-16 h-16 bg-[var(--color-secondary)] rounded-full flex-shrink-0 overflow-hidden border border-[var(--color-border)]">
-        <div class="w-full h-full bg-gray-300 group-hover:scale-110 transition-transform"></div>
-      </div>
-      <div>
-        <h3 class="font-bold text-[var(--color-foreground)] group-hover:underline cursor-pointer">Ricardo Lillo</h3>
-        <p class="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest mt-1 mb-2">Vicepresidente</p>
-        <p class="text-xs text-[var(--color-muted-foreground)] mb-3">Mesa Nacional</p>
-        <button class="text-xs font-bold border border-[var(--color-border)] px-3 py-1 hover:bg-[var(--color-secondary)] transition-colors">
-          Enviar Mensaje
-        </button>
-      </div>
+    <!-- Árbol Interactivo -->
+    <div class="relative">
+      {treeRoots.length === 0 ? (
+        <div class="p-12 text-center border-4 border-dashed border-[var(--color-border)] bg-[var(--color-secondary)]">
+          <h3 class="text-2xl font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Estructura Vacía</h3>
+          <p class="text-sm font-bold mt-2">El motor institucional no registra órganos creados.</p>
+        </div>
+      ) : (
+        <div class="space-y-6">
+          <!-- Línea Guía Vertical (Background) -->
+          <div class="absolute left-4 top-10 bottom-0 w-1 bg-[var(--color-border)] -z-10 hidden md:block"></div>
+          
+          {treeRoots.map(rootNode => (
+            <OrgNode node={rootNode} level={0} canManage={canManageOrg} />
+          ))}
+        </div>
+      )}
     </div>
 
   </div>

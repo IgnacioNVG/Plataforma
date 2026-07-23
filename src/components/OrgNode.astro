@@ -1,0 +1,106 @@
+---
+import { authorize } from '../lib/authz';
+
+interface Props {
+  node: {
+    id: string;
+    name: string;
+    type: string;
+    description: string | null;
+    authorities: any[];
+    children: any[];
+  };
+  level?: number;
+  canManage?: boolean;
+}
+
+const { node, level = 0, canManage = false } = Astro.props;
+
+// Calculamos un margen dinámico basado en la profundidad
+const indentClass = level > 0 ? 'ml-6 md:ml-12 border-l-4 border-[var(--color-primary)]' : 'border-l-8 border-[var(--color-foreground)]';
+const isRoot = level === 0;
+---
+
+<div class={`mb-6 relative ${indentClass}`}>
+  
+  <details class="group" open={isRoot}>
+    <summary class={`flex items-center justify-between cursor-pointer list-none bg-[var(--color-background)] border-2 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0px_0px_var(--color-primary)] transition-all p-4 ${isRoot ? 'bg-[#FFFDF5]' : ''}`}>
+      <div class="flex items-center gap-4">
+        <!-- Ícono Indicador de Colapso -->
+        <div class="w-6 h-6 bg-[var(--color-foreground)] text-white flex items-center justify-center font-black group-open:rotate-90 transition-transform">
+          ▶
+        </div>
+        <div>
+          <h2 class={`${isRoot ? 'text-3xl' : 'text-xl'} font-black uppercase tracking-tight`}>{node.name}</h2>
+          <div class="flex gap-2 mt-1">
+            <span class="text-[9px] font-bold uppercase tracking-widest bg-[var(--color-secondary)] border border-[var(--color-border)] px-2 py-0.5 text-[var(--color-foreground)]">
+              Nivel: {node.type}
+            </span>
+            {node.description && (
+              <span class="text-[9px] font-medium text-[var(--color-muted-foreground)] uppercase">
+                {node.description}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {canManage && (
+        <div class="hidden md:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <a href={`/admin/directorio/nombramientos?org=${node.id}`} class="text-[10px] font-black uppercase tracking-widest bg-yellow-400 border border-black px-3 py-1 hover:bg-yellow-300">
+            + Nombramiento
+          </a>
+          <a href={`/admin/directorio/organos?parent=${node.id}`} class="text-[10px] font-black uppercase tracking-widest bg-[var(--color-primary)] text-white border border-black px-3 py-1 hover:bg-red-700">
+            + Sub-Órgano
+          </a>
+        </div>
+      )}
+    </summary>
+
+    <!-- Contenido del Nodo Expansible -->
+    <div class="pt-6 pl-4 md:pl-8 pb-4">
+      
+      <!-- Listado de Autoridades -->
+      {node.authorities.length > 0 ? (
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+          {node.authorities.map((auth: any) => (
+            <div class="flex items-start gap-4 p-4 border border-[var(--color-border)] bg-[var(--color-secondary)] hover:border-[var(--color-foreground)] transition-colors group/card">
+              <div class="w-14 h-14 bg-[var(--color-background)] rounded-none flex-shrink-0 border-2 border-[var(--color-foreground)] overflow-hidden">
+                {auth.user.avatarUrl ? (
+                  <img src={auth.user.avatarUrl} alt={auth.user.name} class="w-full h-full object-cover grayscale group-hover/card:grayscale-0 transition-all" />
+                ) : (
+                  <div class="w-full h-full flex items-center justify-center font-black text-xl text-gray-400 bg-gray-200">
+                    {auth.user.name.charAt(0)}{auth.user.lastName.charAt(0)}
+                  </div>
+                )}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-bold text-sm uppercase tracking-tight truncate">{auth.user.name} {auth.user.lastName}</h3>
+                <p class="text-[10px] font-black text-[var(--color-primary)] uppercase tracking-widest mt-1 mb-1 truncate">{auth.position}</p>
+                <div class="text-[9px] text-[var(--color-muted-foreground)] flex items-center gap-2">
+                  <a href={`mailto:${auth.user.email}`} class="hover:text-[var(--color-foreground)] underline decoration-dashed">Contacto</a>
+                  {auth.resolution && <span>| Ref: {auth.resolution}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="mb-8 p-4 border-2 border-dashed border-[var(--color-border)] text-[var(--color-muted-foreground)] text-xs font-bold uppercase tracking-widest flex items-center gap-2 bg-[var(--color-secondary)]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          Sin Autoridades Vigentes
+        </div>
+      )}
+
+      <!-- Sub-órganos Recursivos -->
+      {node.children.length > 0 && (
+        <div class="mt-4">
+          {node.children.map((child: any) => (
+            <Astro.self node={child} level={level + 1} canManage={canManage} />
+          ))}
+        </div>
+      )}
+      
+    </div>
+  </details>
+</div>

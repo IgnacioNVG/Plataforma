@@ -1,0 +1,74 @@
+---
+import { authorize } from '../../../lib/authz';
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { newsTable, userTable } from '../../../db/schema';
+import { desc, eq } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+const canManage = await authorize(user?.id, 'manage', 'news');
+if (!canManage) {
+  return Astro.redirect('/');
+}
+
+// Fetch news joined with author
+const newsList = await db.select({
+  id: newsTable.id,
+  title: newsTable.title,
+  slug: newsTable.slug,
+  publishedAt: newsTable.publishedAt,
+  authorName: userTable.name,
+  authorLastName: userTable.lastName
+})
+.from(newsTable)
+.leftJoin(userTable, eq(newsTable.authorId, userTable.id))
+.orderBy(desc(newsTable.publishedAt));
+---
+
+<AppLayout title="Panel Admin - Noticias">
+  <div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-4xl font-black uppercase tracking-tight text-[var(--color-foreground)]">Gestor de<br/>Noticias</h1>
+        <p class="text-sm font-bold uppercase tracking-widest text-[var(--color-primary)] mt-2">Nivel de Acceso: PBAC</p>
+      </div>
+      <div>
+        <a href="/admin/noticias/crear" class="bg-[var(--color-primary)] text-white px-6 py-3 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] transition-colors border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+          + Redactar Nueva
+        </a>
+      </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="bg-[var(--color-background)] border-2 border-[var(--color-border)]">
+      <div class="grid grid-cols-12 gap-4 p-4 border-b-2 border-[var(--color-border)] bg-[var(--color-secondary)]">
+        <div class="col-span-6 font-black uppercase tracking-widest text-xs">Titular</div>
+        <div class="col-span-3 font-black uppercase tracking-widest text-xs">Autor</div>
+        <div class="col-span-2 font-black uppercase tracking-widest text-xs">Fecha</div>
+        <div class="col-span-1 font-black uppercase tracking-widest text-xs text-right">Acción</div>
+      </div>
+
+      {newsList.length === 0 ? (
+        <div class="p-12 text-center text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest">
+          No hay noticias publicadas aún.
+        </div>
+      ) : (
+        <div class="divide-y-2 divide-dashed divide-[var(--color-border)]">
+          {newsList.map((news) => (
+            <div class="grid grid-cols-12 gap-4 p-4 items-center hover:bg-[var(--color-secondary)] transition-colors">
+              <div class="col-span-6 font-bold truncate pr-4 text-[var(--color-foreground)]">{news.title}</div>
+              <div class="col-span-3 text-xs font-medium text-[var(--color-muted-foreground)] truncate">{news.authorName} {news.authorLastName}</div>
+              <div class="col-span-2 text-xs font-bold">{new Date(news.publishedAt).toLocaleDateString('es-CL')}</div>
+              <div class="col-span-1 text-right flex justify-end gap-2">
+                <a href={`/noticias/${news.slug}`} target="_blank" class="text-[var(--color-primary)] hover:text-[var(--color-foreground)]" title="Ver en público">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+</AppLayout>

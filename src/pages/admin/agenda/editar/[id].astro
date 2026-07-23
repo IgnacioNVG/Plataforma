@@ -1,0 +1,158 @@
+---
+import { authorize } from '../../../../lib/authz';
+import AppLayout from '../../../../layouts/AppLayout.astro';
+import { db } from '../../../../db';
+import { eventTable } from '../../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+
+const canManage = await authorize(user?.id, 'manage', 'event');
+if (!canManage) {
+  return Astro.redirect('/');
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/agenda');
+
+const [eventItem] = await db.select().from(eventTable).where(eq(eventTable.id, id));
+if (!eventItem) return Astro.redirect('/admin/agenda');
+
+let errorMessage = '';
+let successMessage = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const title = formData.get('title')?.toString();
+    const description = formData.get('description')?.toString();
+    const location = formData.get('location')?.toString();
+    const startDate = formData.get('startDate')?.toString();
+    const requiredClearance = parseInt(formData.get('requiredClearance')?.toString() || '1');
+
+    if (!title || !startDate) {
+      errorMessage = 'El título y la fecha son obligatorios.';
+    } else {
+      await db.update(eventTable).set({
+        title,
+        description,
+        location,
+        startDate: new Date(startDate),
+        requiredClearance
+      }).where(eq(eventTable.id, id));
+      
+      successMessage = 'Evento actualizado correctamente.';
+      
+      // Update local object so the form reflects the changes immediately
+      eventItem.title = title;
+      eventItem.description = description;
+      eventItem.location = location;
+      eventItem.startDate = new Date(startDate);
+      eventItem.requiredClearance = requiredClearance;
+    }
+  } catch (e) {
+    console.error(e);
+    errorMessage = 'Error al actualizar el evento.';
+  }
+}
+
+// Format date for datetime-local input
+const formatDateForInput = (date: Date) => {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+---
+
+<AppLayout title="Editar Evento">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
+      <a href="/admin/agenda" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2 mb-4">
+        ← Volver al Gestor
+      </a>
+      <h1 class="text-4xl font-black uppercase tracking-tighter">Editar Evento</h1>
+    </div>
+
+    {errorMessage && (
+      <div class="bg-red-100 border-l-4 border-red-500 p-4 mb-8 text-red-700 font-bold uppercase tracking-widest text-sm">
+        {errorMessage}
+      </div>
+    )}
+    
+    {successMessage && (
+      <div class="bg-green-100 border-l-4 border-green-500 p-4 mb-8 text-green-700 font-bold uppercase tracking-widest text-sm">
+        {successMessage}
+      </div>
+    )}
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-8">
+      <div class="space-y-2">
+        <label for="title" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Evento *</label>
+        <input 
+          type="text" 
+          id="title" 
+          name="title" 
+          required 
+          value={eventItem.title}
+          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 text-xl font-bold focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
+        />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="space-y-2">
+          <label for="startDate" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Fecha y Hora *</label>
+          <input 
+            type="datetime-local" 
+            id="startDate" 
+            name="startDate" 
+            required 
+            value={formatDateForInput(new Date(eventItem.startDate))}
+            class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-3 font-bold focus:outline-none focus:border-[var(--color-primary)]"
+          />
+        </div>
+        
+        <div class="space-y-2">
+          <label for="location" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Ubicación / Plataforma</label>
+          <input 
+            type="text" 
+            id="location" 
+            name="location" 
+            value={eventItem.location || ''}
+            class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-3 font-bold focus:outline-none focus:border-[var(--color-primary)]"
+          />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="requiredClearance" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Nivel de Acceso Requerido</label>
+        <select 
+          id="requiredClearance" 
+          name="requiredClearance" 
+          class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-3 font-bold focus:outline-none focus:border-[var(--color-primary)]"
+        >
+          <option value="1" selected={eventItem.requiredClearance === 1}>Nivel 1 - Nacional / Público</option>
+          <option value="2" selected={eventItem.requiredClearance === 2}>Nivel 2 - Regional</option>
+          <option value="3" selected={eventItem.requiredClearance === 3}>Nivel 3 - Comunal / Restringido</option>
+        </select>
+      </div>
+
+      <div class="space-y-2">
+        <label for="description" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción Detallada</label>
+        <textarea 
+          id="description" 
+          name="description" 
+          rows="6" 
+          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
+        >{eventItem.description || ''}</textarea>
+      </div>
+
+      <div class="pt-6 border-t-4 border-[var(--color-foreground)] flex justify-end gap-4">
+        <a href="/admin/agenda" class="px-6 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-[var(--color-secondary)] transition-colors">
+          Volver
+        </a>
+        <button type="submit" class="bg-[var(--color-primary)] text-white px-8 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0px_0px_var(--color-foreground)] transition-all">
+          Guardar Cambios
+        </button>
+      </div>
+    </form>
+  </div>
+</AppLayout>

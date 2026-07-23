@@ -1,0 +1,109 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { forumCategoryTable, forumTopicTable, forumReplyTable, userTable } from '../../db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+const { categoria: categoryId } = Astro.params;
+if (!categoryId) return Astro.redirect('/foros');
+
+const [category] = await db.select().from(forumCategoryTable).where(eq(forumCategoryTable.id, categoryId));
+if (!category) return Astro.redirect('/foros');
+
+const topics = await db.select().from(forumTopicTable)
+  .where(eq(forumTopicTable.categoryId, categoryId))
+  .orderBy(desc(forumTopicTable.createdAt));
+
+// For each topic, fetch author and reply count
+const topicsWithDetails = await Promise.all(topics.map(async (topic) => {
+  const [author] = await db.select().from(userTable).where(eq(userTable.id, topic.authorId));
+  const replies = await db.select().from(forumReplyTable).where(eq(forumReplyTable.topicId, topic.id));
+  
+  const latestReply = replies.length > 0 ? replies[replies.length - 1] : null;
+  let latestReplyAuthor = null;
+  if (latestReply) {
+    const [replyAuthor] = await db.select().from(userTable).where(eq(userTable.id, latestReply.authorId));
+    latestReplyAuthor = replyAuthor;
+  }
+
+  return {
+    ...topic,
+    authorName: author ? `${author.name} ${author.lastName}` : 'Usuario Desconocido',
+    replyCount: replies.length,
+    latestReply,
+    latestReplyAuthor: latestReplyAuthor ? `${latestReplyAuthor.name} ${latestReplyAuthor.lastName}` : null
+  };
+}));
+---
+
+<AppLayout title={category.name}>
+  <div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="mb-10 border-b-4 border-[var(--color-foreground)] pb-6 flex flex-col md:flex-row justify-between md:items-end gap-4">
+      <div>
+        <a href="/foros" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2 mb-4">
+          ← Volver al Índice
+        </a>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter">{category.name}</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-2">{category.description}</p>
+      </div>
+      <div>
+        {Astro.locals.user ? (
+          <a href={`/foros/crear_hilo?categoria=${category.id}`} class="bg-[var(--color-primary)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+            + Nuevo Tema
+          </a>
+        ) : (
+          <div class="bg-[var(--color-secondary)] text-[var(--color-muted-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-border)] text-center">
+            Debes iniciar sesión para participar
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Hilos -->
+    <div class="flex flex-col gap-4">
+      {topicsWithDetails.length === 0 ? (
+        <div class="bg-white border-2 border-[var(--color-border)] p-12 text-center">
+          <p class="text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest">Nadie ha publicado en esta categoría todavía.</p>
+          <p class="text-sm mt-2 font-medium">¡Sé el primero en abrir el debate!</p>
+        </div>
+      ) : (
+        topicsWithDetails.map(topic => (
+          <article class="bg-[var(--color-background)] border-2 border-[var(--color-border)] hover:border-[var(--color-foreground)] p-4 flex gap-4 transition-all group">
+            <!-- Interacciones -->
+            <div class="flex flex-col items-center justify-start gap-1 flex-shrink-0 w-16 pt-1 border-r-2 border-dashed border-[var(--color-border)] group-hover:border-[var(--color-foreground)] pr-4">
+              <svg class="w-6 h-6 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+              <span class="font-black text-sm">{topic.replyCount}</span>
+            </div>
+            
+            <!-- Contenido -->
+            <div class="flex-1 min-w-0 pl-2">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-[var(--color-muted-foreground)] text-[10px] font-bold uppercase tracking-widest">
+                  Publicado por <span class="text-[var(--color-foreground)]">{topic.authorName}</span> • {new Date(topic.createdAt).toLocaleDateString('es-CL')}
+                </span>
+              </div>
+              
+              <h2 class="text-xl font-black text-[var(--color-foreground)] mb-2 leading-snug group-hover:text-[var(--color-primary)] transition-colors">
+                <a href={`/foros/tema/${topic.id}`} class="before:absolute before:inset-0 relative">{topic.title}</a>
+              </h2>
+              <p class="text-sm font-medium text-[var(--color-muted-foreground)] line-clamp-2 leading-relaxed">
+                {topic.content.replace(/<[^>]*>?/gm, '').substring(0, 200)}...
+              </p>
+              
+              <div class="flex items-center gap-4 mt-4 border-t border-[var(--color-border)] pt-3">
+                <span class="text-[10px] font-bold uppercase text-[var(--color-muted-foreground)]">
+                  {topic.latestReply ? (
+                    <>Última respuesta por <span class="text-[var(--color-foreground)]">{topic.latestReplyAuthor}</span> el {new Date(topic.latestReply.createdAt).toLocaleDateString('es-CL')}</>
+                  ) : (
+                    <>Aún no hay respuestas</>
+                  )}
+                </span>
+              </div>
+            </div>
+          </article>
+        ))
+      )}
+    </div>
+  </div>
+</AppLayout>

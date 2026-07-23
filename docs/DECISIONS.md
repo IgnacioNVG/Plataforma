@@ -2,6 +2,15 @@
 
 Este documento centraliza todas las decisiones arquitectónicas importantes tomadas durante la vida del proyecto. Nos permite recordar el "por qué" detrás de las elecciones técnicas.
 
+### Herramientas principales elegidas (Frontend)
+- **Astro**: Por su rendimiento, arquitectura de islas y soporte para colecciones de contenido estáticas.
+- **Tailwind CSS**: Para el sistema de diseño brutalista basado en variables CSS strictas.
+
+### Decisiones de Arquitectura Backend (2026-07-22)
+- **Astro Server (SSR)**: La aplicación corre sobre Node.js Adapter de Astro para soportar protección de rutas por sesión, manejo dinámico de cookies y middleware (`output: 'server'`).
+- **Base de Datos y ORM (Drizzle)**: Se escogió PostgreSQL. Para interactuar con la DB se utilizará **Drizzle ORM** debido a su ligereza, tipado estricto en TS y ausencia de un motor pesado (como en Prisma), manteniéndose agnóstico del proveedor de Postgres (Supabase, Neon, AWS o local).
+- **Autenticación (Lucia Auth)**: Se optó por **Lucia Auth** como núcleo de autenticación. Razones: se abstrae completamente del proveedor, conecta nativamente con Drizzle, gestiona las cookies seguras (`HttpOnly`) a bajo nivel y se alinea con la filosofía de independencia descrita en `INFRASTRUCTURE.md`.
+
 Formato para nuevos registros:
 ---
 ## ADR [Número]: [Título corto]

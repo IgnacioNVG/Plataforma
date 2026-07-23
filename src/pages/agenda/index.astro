@@ -1,171 +1,232 @@
 ---
+import { authorize } from '../../lib/authz';
 import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { eventTable } from '../../db/schema';
+import { gte, lte, and } from 'drizzle-orm';
+
+// Navegación de Mes
+const urlParams = new URL(Astro.request.url).searchParams;
+const monthParam = urlParams.get('mes');
+
+let currentDate = new Date();
+if (monthParam) {
+  const [y, m] = monthParam.split('-');
+  if (y && m) currentDate = new Date(parseInt(y), parseInt(m) - 1, 1);
+}
+
+const currentYear = currentDate.getFullYear();
+const currentMonth = currentDate.getMonth();
+
+const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+
+// Para botones Ant/Sig
+const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
+const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
+const prevMonthStr = `${prevMonthDate.getFullYear()}-${(prevMonthDate.getMonth() + 1).toString().padStart(2, '0')}`;
+const nextMonthStr = `${nextMonthDate.getFullYear()}-${(nextMonthDate.getMonth() + 1).toString().padStart(2, '0')}`;
+const currentMonthName = new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(currentDate);
+
+// Lógica de Grilla (empezando en Lunes)
+let startDayOfWeek = firstDayOfMonth.getDay() - 1;
+if (startDayOfWeek === -1) startDayOfWeek = 6; // Domingo
+
+const daysInGrid = [];
+const startDateForGrid = new Date(firstDayOfMonth);
+startDateForGrid.setDate(startDateForGrid.getDate() - startDayOfWeek); // Retrocede al Lunes anterior
+
+for (let i = 0; i < 42; i++) { // 6 semanas * 7 días (fijo para siempre tener una grilla perfecta)
+  daysInGrid.push(new Date(startDateForGrid));
+  startDateForGrid.setDate(startDateForGrid.getDate() + 1);
+}
+
+const gridStart = daysInGrid[0];
+const gridEnd = daysInGrid[daysInGrid.length - 1];
+
+// Traer Eventos del mes (y días rellenados)
+const eventsInGrid = await db.select()
+  .from(eventTable)
+  .where(
+    and(
+      gte(eventTable.startDate, gridStart),
+      lte(eventTable.startDate, gridEnd)
+    )
+  );
+
+// Traer Próximos Eventos (7 días) para el sidebar
+const today = new Date();
+today.setHours(0,0,0,0);
+const nextWeek = new Date(today);
+nextWeek.setDate(nextWeek.getDate() + 7);
+
+const upcomingEvents = await db.select()
+  .from(eventTable)
+  .where(
+    and(
+      gte(eventTable.startDate, today),
+      lte(eventTable.startDate, nextWeek)
+    )
+  )
+  .orderBy(eventTable.startDate);
+
+const user = Astro.locals.user;
+const canEdit = await authorize(user?.id, 'manage', 'event');
 ---
 
 <AppLayout title="Agenda Institucional">
-  <div class="mb-8 flex justify-between items-end border-b border-[var(--color-foreground)] pb-6">
+  <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
     <div>
-      <h1 class="text-4xl font-bold text-[var(--color-foreground)]">Agenda</h1>
-      <p class="text-[var(--color-muted-foreground)] mt-2">Calendario de actividades, plenos, reuniones y eventos formativos.</p>
+      <h1 class="text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter">Agenda Orgánica</h1>
+      <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-2 border-l-4 border-[var(--color-primary)] pl-3">Planificación y eventos territoriales</p>
     </div>
-    <div class="hidden md:flex gap-2">
-      <button class="bg-[var(--color-background)] border border-[var(--color-border)] px-4 py-2 font-bold text-sm hover:border-[var(--color-foreground)] transition-colors rounded-[var(--radius-sm)]">
-        &larr; Anterior
-      </button>
-      <button class="bg-[var(--color-foreground)] text-white px-6 py-2 font-bold text-sm rounded-[var(--radius-sm)]">
-        Noviembre 2023
-      </button>
-      <button class="bg-[var(--color-background)] border border-[var(--color-border)] px-4 py-2 font-bold text-sm hover:border-[var(--color-foreground)] transition-colors rounded-[var(--radius-sm)]">
-        Siguiente &rarr;
-      </button>
+    <div class="flex gap-4">
+      <div class="hidden md:flex gap-2">
+        <a href={`/agenda?mes=${prevMonthStr}`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors block text-center">
+          &larr; Ant
+        </a>
+        <div class="bg-[var(--color-foreground)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest cursor-default flex items-center justify-center min-w-[200px]">
+          {currentMonthName}
+        </div>
+        <a href={`/agenda?mes=${nextMonthStr}`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors block text-center">
+          Sig &rarr;
+        </a>
+      </div>
+      {canEdit && (
+        <div class="flex gap-2">
+          <a href="/admin/agenda" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+            ⚙️ Gestor
+          </a>
+          <a href="/admin/agenda/crear" class="bg-[var(--color-primary)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+            + Agendar
+          </a>
+        </div>
+      )}
     </div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
     
-    <!-- Filtros y Próximos Eventos (1/4) -->
+    <!-- Sidebar -->
     <aside class="lg:col-span-1 space-y-8">
-      
       <!-- Filtros -->
-      <div class="bg-[var(--color-secondary)] p-6 rounded-[var(--radius-sm)] border border-[var(--color-border)]">
-        <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-4">Filtrar por Nivel</h3>
-        <ul class="space-y-3">
-          <li>
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]" checked />
-              <span class="text-sm font-bold">Nacional</span>
-            </label>
-          </li>
-          <li>
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" checked />
-              <span class="text-sm font-bold">Regional</span>
-            </label>
-          </li>
-          <li>
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" checked />
-              <span class="text-sm font-bold">Comunal</span>
-            </label>
-          </li>
-          <li>
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" class="w-4 h-4 rounded-none border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-[var(--color-foreground)]" />
-              <span class="text-sm font-bold">Comisiones</span>
-            </label>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Próximos Eventos -->
-      <div>
-        <h3 class="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-widest border-b border-[var(--color-foreground)] pb-2 mb-4">Próximos en 7 días</h3>
-        <div class="space-y-4">
-          
-          <article class="group cursor-pointer">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="w-2 h-2 rounded-full bg-[var(--color-primary)]"></span>
-              <span class="text-[10px] font-bold text-[var(--color-primary)] uppercase">Nacional</span>
-            </div>
-            <h4 class="font-bold text-sm group-hover:underline">Pleno del Comité Central</h4>
-            <p class="text-xs text-[var(--color-muted-foreground)]">Jue 12, 18:00 hrs • Sede París 873</p>
-          </article>
-          
-          <article class="group cursor-pointer">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="w-2 h-2 rounded-full bg-[var(--color-foreground)]"></span>
-              <span class="text-[10px] font-bold text-[var(--color-foreground)] uppercase">Regional</span>
-            </div>
-            <h4 class="font-bold text-sm group-hover:underline">Encuentro de Formadores</h4>
-            <p class="text-xs text-[var(--color-muted-foreground)]">Sáb 14, 10:00 hrs • Zoom</p>
-          </article>
-
+      <div class="space-y-4">
+        <h3 class="text-xs font-black text-[var(--color-foreground)] uppercase tracking-widest border-b-2 border-[var(--color-border)] pb-2">Capas Visibles</h3>
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-3 cursor-pointer group p-2 border-2 border-[var(--color-foreground)] bg-[#FFFDF5] hover:bg-gray-100 transition-colors">
+            <input type="checkbox" class="w-5 h-5 rounded-none border-2 border-[var(--color-foreground)] text-[var(--color-primary)] focus:ring-0 checked:bg-[var(--color-primary)]" checked />
+            <span class="text-xs font-black uppercase tracking-widest">Nivel 1 (Nacional)</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer group p-2 border-2 border-[var(--color-foreground)] bg-white hover:bg-gray-100 transition-colors">
+            <input type="checkbox" class="w-5 h-5 rounded-none border-2 border-[var(--color-foreground)] text-[var(--color-foreground)] focus:ring-0 checked:bg-[var(--color-foreground)]" checked />
+            <span class="text-xs font-black uppercase tracking-widest">Nivel 2 (Regional)</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer group p-2 border-2 border-[var(--color-border)] bg-gray-50 hover:bg-gray-100 transition-colors">
+            <input type="checkbox" class="w-5 h-5 rounded-none border-2 border-[var(--color-border)] text-[var(--color-muted-foreground)] focus:ring-0 checked:bg-[var(--color-border)]" checked />
+            <span class="text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]">Nivel 3 (Comunal)</span>
+          </label>
         </div>
       </div>
-      
+
+      <!-- Próximos Eventos Timeline -->
+      <div>
+        <h3 class="text-xs font-black text-[var(--color-foreground)] uppercase tracking-widest border-b-2 border-[var(--color-foreground)] pb-2 mb-6">Próximos en 7 días</h3>
+        
+        <div class="relative pl-4 border-l-2 border-[var(--color-border)] space-y-8 ml-2">
+          {upcomingEvents.length === 0 ? (
+            <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Sin eventos próximos.</p>
+          ) : (
+            upcomingEvents.map(event => (
+              <div class="relative">
+                <div class={`absolute -left-[23px] top-0 w-3 h-3 rounded-none ring-4 ring-[var(--color-background)] border-2 border-[var(--color-foreground)] ${event.requiredClearance === 1 ? 'bg-[var(--color-primary)]' : event.requiredClearance === 2 ? 'bg-[var(--color-foreground)]' : 'bg-[var(--color-muted-foreground)]'}`}></div>
+                <div class={`text-[10px] font-black uppercase tracking-widest mb-1 ${event.requiredClearance === 1 ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'}`}>
+                  {new Date(event.startDate).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric' })} • {new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
+                </div>
+                <h4 class="font-black text-sm uppercase leading-tight">{event.title}</h4>
+                {event.location && <p class="text-xs font-medium text-[var(--color-muted-foreground)] mt-1">{event.location}</p>}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </aside>
 
-    <!-- Calendario Brutalista (3/4) -->
+    <!-- Calendario Brutalista -->
     <div class="lg:col-span-3">
-      <div class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] rounded-[var(--radius-sm)] overflow-hidden">
+      <div class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)]">
         
         <!-- Días de la semana -->
-        <div class="grid grid-cols-7 border-b-2 border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white">
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest">Lun</div>
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Mar</div>
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Mié</div>
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Jue</div>
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Vie</div>
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Sáb</div>
-          <div class="py-2 text-center text-xs font-bold uppercase tracking-widest border-l border-white/20">Dom</div>
+        <div class="grid grid-cols-7 border-b-4 border-[var(--color-foreground)] bg-[var(--color-secondary)]">
+          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
+            <div class="py-3 text-center text-xs font-black uppercase tracking-widest border-r-2 border-[var(--color-foreground)] last:border-r-0 text-[var(--color-foreground)]">
+              {day}
+            </div>
+          ))}
         </div>
 
-        <!-- Grilla de días (Simulación) -->
+        <!-- Grilla de días -->
         <div class="grid grid-cols-7 auto-rows-fr">
-          
-          <!-- Día vacío (mes anterior) -->
-          <div class="min-h-[120px] p-2 bg-[var(--color-secondary)] opacity-50 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-muted-foreground)]">30</span>
-          </div>
-          <div class="min-h-[120px] p-2 bg-[var(--color-secondary)] opacity-50 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-muted-foreground)]">31</span>
-          </div>
-          
-          <!-- Días del mes -->
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">1</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">2</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">3</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)] relative bg-[#FFFDF5]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">4</span>
-            <div class="mt-2 bg-[var(--color-foreground)] text-white text-[10px] p-1 font-bold rounded-sm leading-tight truncate">
-              Asamblea Comunal
-            </div>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">5</span>
-          </div>
-          
-          <!-- Siguiente fila (1 semana completa) -->
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">6</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">7</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">8</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">9</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">10</span>
-          </div>
-          <div class="min-h-[120px] p-2 border-b border-r border-[var(--color-border)]">
-            <span class="text-sm font-bold text-[var(--color-foreground)]">11</span>
-          </div>
-          
-          <!-- Hoy -->
-          <div class="min-h-[120px] p-2 border-b border-r-0 border-[var(--color-border)] bg-[#FFFDF5] relative border-t-[3px] border-t-[var(--color-primary)]">
-            <span class="text-sm font-bold text-[var(--color-primary)]">12</span>
-            <div class="mt-2 bg-[var(--color-primary)] text-white text-[10px] p-1 font-bold rounded-sm leading-tight truncate">
-              Pleno CC
-            </div>
-            <div class="mt-1 bg-[var(--color-foreground)] text-white text-[10px] p-1 font-bold rounded-sm leading-tight truncate">
-              Reunión Frentes
-            </div>
-          </div>
-          
-          <!-- Resto de las filas omitidas por brevedad en este wireframe -->
-          
+          {daysInGrid.map((date, idx) => {
+            const isCurrentMonth = date.getMonth() === currentMonth;
+            const isToday = date.toDateString() === new Date().toDateString();
+            
+            // Buscar eventos para este día
+            const dayEvents = eventsInGrid.filter(e => new Date(e.startDate).toDateString() === date.toDateString());
+
+            // Determinar clases de estilo basadas en el estado del día
+            let cellClasses = "min-h-[140px] p-2 border-b-2 border-[var(--color-foreground)] relative transition-colors cursor-crosshair ";
+            
+            if (!isCurrentMonth) {
+              cellClasses += "bg-gray-100 stripe-pattern text-gray-400 ";
+            } else if (isToday) {
+              cellClasses += "bg-[#FFF9F9] border-t-[6px] border-t-[var(--color-primary)] ";
+            } else {
+              cellClasses += "hover:bg-[var(--color-secondary)] ";
+            }
+
+            // Borde derecho para todos excepto el último de la fila
+            if ((idx + 1) % 7 !== 0) {
+              cellClasses += "border-r-2 ";
+            }
+
+            return (
+              <div class={cellClasses}>
+                <span class={`text-sm font-black ${isToday ? 'text-white bg-[var(--color-primary)] px-2 py-0.5 rounded-none shadow-[2px_2px_0px_0px_var(--color-foreground)] border border-[var(--color-foreground)]' : (isCurrentMonth ? 'text-[var(--color-foreground)]' : 'bg-white px-1')}`}>
+                  {date.getDate()}
+                </span>
+                
+                <div class="mt-2 flex flex-col gap-1">
+                  {dayEvents.map(event => {
+                    const colorClass = event.requiredClearance === 1 
+                      ? 'bg-[var(--color-primary)] text-white border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:shadow-[1px_1px_0px_0px_var(--color-foreground)]' 
+                      : event.requiredClearance === 2
+                      ? 'bg-[var(--color-foreground)] text-white border-[var(--color-border)] shadow-[2px_2px_0px_0px_var(--color-border)] hover:shadow-[1px_1px_0px_0px_var(--color-border)]'
+                      : 'bg-white text-[var(--color-foreground)] border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:shadow-[1px_1px_0px_0px_var(--color-foreground)]';
+
+                    return (
+                      <div class={`border-2 text-[9px] p-1 font-black uppercase tracking-widest leading-none hover:translate-y-px hover:translate-x-px transition-all truncate ${colorClass}`} title={event.title}>
+                        {new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} - {event.title}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   </div>
+
+  <style>
+    .stripe-pattern {
+      background-image: repeating-linear-gradient(
+        45deg,
+        #f3f4f6,
+        #f3f4f6 10px,
+        #ffffff 10px,
+        #ffffff 20px
+      );
+    }
+  </style>
 </AppLayout>

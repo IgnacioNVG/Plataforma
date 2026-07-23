@@ -39,7 +39,7 @@ function isActive(href: string) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
-    <title>{title} | Juventud Socialista</title>
+    <title>{title} | Plataforma Militante Socialista</title>
     <!-- Astro View Transitions para animación entre páginas -->
     <ClientRouter />
   </head>
@@ -48,9 +48,14 @@ function isActive(href: string) {
       
       <!-- Sidebar -->
       <aside class="w-64 bg-[var(--color-secondary)] border-r border-[var(--color-border)] hidden md:flex flex-col h-screen sticky top-0">
-        <div class="p-6 border-b border-[var(--color-border)]">
-          <h1 class="text-xl font-bold tracking-tight">Juventud Socialista</h1>
-          <p class="text-sm text-[var(--color-muted-foreground)] mt-1">Plataforma Institucional</p>
+        <div class="p-6 border-b border-[var(--color-border)] flex items-center gap-3">
+          <div class="relative">
+            <img src="/logo.svg" alt="Logo PMS" class="w-10 h-10 flex-shrink-0 object-contain drop-shadow-[2px_2px_0px_rgba(0,0,0,0.8)]" />
+            <span class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 transform rotate-[15deg] shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] border-2 border-white z-10">BETA</span>
+          </div>
+          <div>
+            <h1 class="text-sm font-black tracking-tight uppercase leading-[1.1]">Plataforma<br/>Militante<br/>Socialista</h1>
+          </div>
         </div>
         
         <nav class="flex-1 overflow-y-auto py-4">
@@ -69,21 +74,31 @@ function isActive(href: string) {
                 </li>
               );
             })}
+            
+            {/* El panel de administración unificado fue eliminado a petición del usuario. Los botones de creación estarán en cada página pública respectiva. */}
           </ul>
         </nav>
 
         <!-- Perfil Inferior -->
-        <div class="p-4 border-t border-[var(--color-border)]">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-[var(--color-border)] rounded-[var(--radius-sm)] overflow-hidden flex-shrink-0">
-              <div class="w-full h-full bg-gray-300"></div>
+        {Astro.locals.user && (
+        <div class="p-4 border-t border-[var(--color-border)] mt-auto">
+          <a href="/perfil" class="flex items-center gap-3 group hover:bg-gray-200 p-2 -mx-2 rounded-[var(--radius-sm)] transition-colors">
+            <div class="w-10 h-10 bg-[var(--color-border)] rounded-none overflow-hidden flex-shrink-0 border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] group-hover:shadow-[0px_0px_0px_0px_var(--color-primary)] group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-all">
+              {Astro.locals.user.avatarUrl ? (
+                <img src={Astro.locals.user.avatarUrl} alt="Avatar" class="w-full h-full object-cover" />
+              ) : (
+                <div class="w-full h-full bg-gray-400 flex items-center justify-center text-sm font-black text-white uppercase">
+                  {(Astro.locals.user.name || 'U').charAt(0)}{(Astro.locals.user.lastName || 'S').charAt(0)}
+                </div>
+              )}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-bold text-[var(--color-foreground)] truncate">Camila Rojas</p>
-              <p class="text-xs text-[var(--color-muted-foreground)] truncate">Sec. General • RM</p>
+              <p class="text-sm font-black text-[var(--color-foreground)] uppercase tracking-tight truncate">{Astro.locals.user.name} {Astro.locals.user.lastName}</p>
+              <p class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest truncate">Ver Mi Perfil</p>
             </div>
-          </div>
+          </a>
         </div>
+        )}
       </aside>
 
       <!-- Main Content Area -->
@@ -100,10 +115,10 @@ function isActive(href: string) {
           </div>
           
           <div class="flex items-center gap-4">
-            <button class="p-2 text-[var(--color-foreground)] hover:bg-[var(--color-secondary)] rounded-[var(--radius-sm)] relative">
+            <a href="/notificaciones" class="p-2 text-[var(--color-foreground)] hover:bg-[var(--color-secondary)] rounded-[var(--radius-sm)] relative block transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--color-primary)] rounded-full"></span>
-            </button>
+            </a>
           </div>
         </header>
 

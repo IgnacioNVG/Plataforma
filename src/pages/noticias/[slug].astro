@@ -1,0 +1,89 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { newsTable, userTable } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/noticias');
+}
+
+const [newsItem] = await db.select({
+  id: newsTable.id,
+  title: newsTable.title,
+  content: newsTable.content,
+  imageUrl: newsTable.imageUrl,
+  publishedAt: newsTable.publishedAt,
+  authorName: userTable.name,
+  authorLastName: userTable.lastName,
+  authorAvatar: userTable.avatarUrl
+})
+.from(newsTable)
+.leftJoin(userTable, eq(newsTable.authorId, userTable.id))
+.where(eq(newsTable.slug, slug));
+
+if (!newsItem) {
+  return Astro.redirect('/noticias'); // O podríamos tener una página 404
+}
+
+// Convert HTML content securely (In a real app use a sanitizer like isomorphic-dompurify)
+const rawHtml = newsItem.content;
+---
+
+<AppLayout title={newsItem.title}>
+  <div class="max-w-4xl mx-auto pb-16">
+    
+    <!-- Metadatos de navegación -->
+    <div class="mb-8">
+      <a href="/noticias" class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] flex items-center gap-2 mb-8 border-b-2 border-[var(--color-border)] pb-4">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        Volver al Boletín Central
+      </a>
+      
+      <div class="flex items-center gap-4 mb-6">
+        <span class="bg-[var(--color-primary)] text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest">Comunicado Oficial</span>
+        <span class="text-xs text-[var(--color-muted-foreground)] font-bold">{new Date(newsItem.publishedAt).toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+      </div>
+      
+      <h1 class="text-5xl md:text-6xl font-black mb-8 leading-none tracking-tight font-serif uppercase">{newsItem.title}</h1>
+      
+      <div class="flex items-center gap-3 border-y-2 border-[var(--color-border)] py-4">
+        <div class="w-10 h-10 bg-[var(--color-background)] rounded-none p-0.5 border-2 border-[var(--color-foreground)] overflow-hidden flex-shrink-0">
+          {newsItem.authorAvatar ? (
+            <img src={newsItem.authorAvatar} alt="Avatar" class="w-full h-full object-cover" />
+          ) : (
+            <div class="w-full h-full bg-gray-400 flex items-center justify-center text-xs font-black text-white uppercase">
+              {(newsItem.authorName || 'U').charAt(0)}{(newsItem.authorLastName || 'S').charAt(0)}
+            </div>
+          )}
+        </div>
+        <div>
+          <span class="block text-sm font-black uppercase tracking-widest">Por {newsItem.authorName} {newsItem.authorLastName}</span>
+          <span class="block text-[10px] text-[var(--color-primary)] font-bold uppercase tracking-widest">Mesa Directiva</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Imagen Principal -->
+    {newsItem.imageUrl && (
+      <div class="w-full mb-12 border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)]">
+        <img src={newsItem.imageUrl} alt={newsItem.title} class="w-full h-auto object-cover max-h-[60vh]" />
+      </div>
+    )}
+
+    <!-- Cuerpo del artículo -->
+    <article class="prose prose-lg max-w-none text-[var(--color-foreground)] font-medium prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tighter prose-p:leading-relaxed prose-a:text-[var(--color-primary)] prose-a:font-bold prose-strong:font-black prose-strong:bg-yellow-100 prose-blockquote:border-l-4 prose-blockquote:border-[var(--color-primary)] prose-blockquote:bg-[var(--color-secondary)] prose-blockquote:p-4 prose-blockquote:font-bold prose-blockquote:italic">
+      <Fragment set:html={rawHtml} />
+    </article>
+    
+    <div class="mt-16 pt-8 border-t-4 border-[var(--color-foreground)] flex justify-between items-center">
+      <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Fin del comunicado.</p>
+      <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 text-[10px] font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-[var(--color-foreground)] hover:text-white transition-colors shadow-[2px_2px_0px_0px_var(--color-primary)]">
+        Volver Arriba ↑
+      </button>
+    </div>
+
+  </div>
+</AppLayout>
