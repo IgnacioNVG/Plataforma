@@ -15,6 +15,7 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^14.1.4",
     "@astrojs/node": "^11.0.2",
     "@astrojs/react": "^6.0.1",
     "@libsql/client": "^0.17.4",
