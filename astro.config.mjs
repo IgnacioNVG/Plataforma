@@ -8,7 +8,6 @@ import react from '@astrojs/react';
 export default defineConfig({
   output: 'server',
   adapter: cloudflare({
-    platform: 'pages',
     platformProxy: {
       enabled: true
     }
