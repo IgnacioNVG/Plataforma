@@ -141,12 +141,12 @@ const padronDb = await db.select().from(padronProvisorioTable).all();
       
       <!-- Paginación -->
       <div class="bg-[var(--color-secondary)] p-4 border-t-2 border-[var(--color-foreground)] flex items-center justify-between">
-        <span class="text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]">Mostrando 1-5 de 2,450 registros</span>
+        <span class="text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]">Mostrando {padronDb.length} registros</span>
         <div class="flex gap-2">
           <button class="px-3 py-1 border-2 border-[var(--color-foreground)] bg-[var(--color-background)] hover:bg-[var(--color-foreground)] hover:text-white transition-colors text-xs font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" disabled>
             Anterior
           </button>
-          <button class="px-3 py-1 border-2 border-[var(--color-foreground)] bg-[var(--color-background)] hover:bg-[var(--color-foreground)] hover:text-white transition-colors text-xs font-black uppercase tracking-widest">
+          <button class="px-3 py-1 border-2 border-[var(--color-foreground)] bg-[var(--color-background)] hover:bg-[var(--color-foreground)] hover:text-white transition-colors text-xs font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" disabled>
             Siguiente
           </button>
         </div>
