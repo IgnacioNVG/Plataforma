@@ -131,6 +131,7 @@ export const eventTable = sqliteTable('event', {
   startDate: integer('start_date', { mode: 'timestamp' }).notNull(),
   organizationId: text('organization_id').references(() => organizationTable.id),
   classification: text('classification').default('publico').notNull(),
+  status: text('status').default('propuesto').notNull(), // 'propuesto', 'aprobado', 'rechazado'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 });
 

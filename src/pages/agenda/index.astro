@@ -2,8 +2,8 @@
 import { authorize } from '../../lib/authz';
 import AppLayout from '../../layouts/AppLayout.astro';
 import { db } from '../../db';
-import { eventTable } from '../../db/schema';
-import { gte, lte, and } from 'drizzle-orm';
+import { eventTable, organizationTable } from '../../db/schema';
+import { gte, lte, and, eq } from 'drizzle-orm';
 
 // Navegación de Mes
 const urlParams = new URL(Astro.request.url).searchParams;
@@ -45,12 +45,17 @@ const gridStart = daysInGrid[0];
 const gridEnd = daysInGrid[daysInGrid.length - 1];
 
 // Traer Eventos del mes (y días rellenados)
-const eventsInGrid = await db.select()
+const eventsInGrid = await db.select({
+    event: eventTable,
+    orgName: organizationTable.name
+  })
   .from(eventTable)
+  .leftJoin(organizationTable, eq(eventTable.organizationId, organizationTable.id))
   .where(
     and(
       gte(eventTable.startDate, gridStart),
-      lte(eventTable.startDate, gridEnd)
+      lte(eventTable.startDate, gridEnd),
+      eq(eventTable.status, 'aprobado')
     )
   );
 
@@ -60,12 +65,17 @@ today.setHours(0,0,0,0);
 const nextWeek = new Date(today);
 nextWeek.setDate(nextWeek.getDate() + 7);
 
-const upcomingEvents = await db.select()
+const upcomingEvents = await db.select({
+    event: eventTable,
+    orgName: organizationTable.name
+  })
   .from(eventTable)
+  .leftJoin(organizationTable, eq(eventTable.organizationId, organizationTable.id))
   .where(
     and(
       gte(eventTable.startDate, today),
-      lte(eventTable.startDate, nextWeek)
+      lte(eventTable.startDate, nextWeek),
+      eq(eventTable.status, 'aprobado')
     )
   )
   .orderBy(eventTable.startDate);
@@ -94,11 +104,14 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
       </div>
       {canEdit && (
         <div class="flex gap-2">
+          <a href="/admin/agenda/aprobaciones" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
+            ✓ Aprobaciones
+          </a>
           <a href="/admin/agenda" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
             ⚙️ Gestor
           </a>
           <a href="/admin/agenda/crear" class="bg-[var(--color-primary)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center">
-            + Agendar
+            + Proponer
           </a>
         </div>
       )}
@@ -136,13 +149,14 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
           {upcomingEvents.length === 0 ? (
             <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Sin eventos próximos.</p>
           ) : (
-            upcomingEvents.map(event => (
+            upcomingEvents.map(({ event, orgName }) => (
               <div class="relative">
                 <div class={`absolute -left-[23px] top-0 w-3 h-3 rounded-none ring-4 ring-[var(--color-background)] border-2 border-[var(--color-foreground)] ${event.requiredClearance === 1 ? 'bg-[var(--color-primary)]' : event.requiredClearance === 2 ? 'bg-[var(--color-foreground)]' : 'bg-[var(--color-muted-foreground)]'}`}></div>
                 <div class={`text-[10px] font-black uppercase tracking-widest mb-1 ${event.requiredClearance === 1 ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'}`}>
                   {new Date(event.startDate).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric' })} • {new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
                 </div>
                 <h4 class="font-black text-sm uppercase leading-tight">{event.title}</h4>
+                {orgName && <p class="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mt-1">{orgName}</p>}
                 {event.location && <p class="text-xs font-medium text-[var(--color-muted-foreground)] mt-1">{event.location}</p>}
               </div>
             ))
@@ -171,7 +185,7 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
             const isToday = date.toDateString() === new Date().toDateString();
             
             // Buscar eventos para este día
-            const dayEvents = eventsInGrid.filter(e => new Date(e.startDate).toDateString() === date.toDateString());
+            const dayEvents = eventsInGrid.filter(e => new Date(e.event.startDate).toDateString() === date.toDateString());
 
             // Determinar clases de estilo basadas en el estado del día
             let cellClasses = "min-h-[140px] p-2 border-b-2 border-[var(--color-foreground)] relative transition-colors cursor-crosshair ";
@@ -196,7 +210,7 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
                 </span>
                 
                 <div class="mt-2 flex flex-col gap-1">
-                  {dayEvents.map(event => {
+                  {dayEvents.map(({ event, orgName }) => {
                     const colorClass = event.requiredClearance === 1 
                       ? 'bg-[var(--color-primary)] text-white border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:shadow-[1px_1px_0px_0px_var(--color-foreground)]' 
                       : event.requiredClearance === 2
@@ -204,8 +218,9 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
                       : 'bg-white text-[var(--color-foreground)] border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:shadow-[1px_1px_0px_0px_var(--color-foreground)]';
 
                     return (
-                      <div class={`border-2 text-[9px] p-1 font-black uppercase tracking-widest leading-none hover:translate-y-px hover:translate-x-px transition-all truncate ${colorClass}`} title={event.title}>
-                        {new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} - {event.title}
+                      <div class={`border-2 text-[9px] p-1 font-black uppercase tracking-widest leading-none hover:translate-y-px hover:translate-x-px transition-all truncate flex flex-col gap-0.5 ${colorClass}`} title={event.title}>
+                        <span>{new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} - {event.title}</span>
+                        {orgName && <span class="opacity-80 text-[7px] truncate">{orgName}</span>}
                       </div>
                     );
                   })}

@@ -1,133 +1,119 @@
 ---
-import { authorize } from '../../../lib/authz';
 import AppLayout from '../../../layouts/AppLayout.astro';
 import { db } from '../../../db';
-import { eventTable } from '../../../db/schema';
+import { organizationTable, eventTable } from '../../../db/schema';
+import crypto from 'node:crypto';
 
+// Requerir autenticación básica (luego se puede restringir con authz)
 const user = Astro.locals.user;
-
-const canManage = await authorize(user?.id, 'manage', 'event');
-if (!canManage) {
-  return Astro.redirect('/');
+if (!user) {
+  return Astro.redirect('/validacion');
 }
 
-let errorMessage = '';
+// Cargar lista de comisiones/organizaciones para proponer el evento
+const organizations = await db.select().from(organizationTable).all();
+
+let error = '';
+let success = '';
 
 if (Astro.request.method === 'POST') {
   try {
-    const formData = await Astro.request.formData();
-    const title = formData.get('title')?.toString();
-    const description = formData.get('description')?.toString();
-    const location = formData.get('location')?.toString();
-    const startDate = formData.get('startDate')?.toString();
-    const requiredClearance = parseInt(formData.get('requiredClearance')?.toString() || '1');
+    const data = await Astro.request.formData();
+    const title = data.get('title') as string;
+    const description = data.get('description') as string;
+    const location = data.get('location') as string;
+    const date = data.get('date') as string;
+    const time = data.get('time') as string;
+    const organizationId = data.get('organizationId') as string;
 
-    if (!title || !startDate) {
-      errorMessage = 'El título y la fecha son obligatorios.';
+    if (!title || !description || !date || !time || !organizationId) {
+      error = 'Faltan campos obligatorios.';
     } else {
+      const eventDate = new Date(`${date}T${time}:00`);
+      
       await db.insert(eventTable).values({
         id: crypto.randomUUID(),
         title,
         description,
-        location,
-        startDate: new Date(startDate),
-        requiredClearance,
-        organizerId: user.id
+        location: location || null,
+        startDate: eventDate,
+        organizationId,
+        classification: 'publico', // Default
+        status: 'propuesto' // ESTADO: PROPUESTO
       });
-      return Astro.redirect('/admin/agenda');
+      
+      success = 'Propuesta enviada exitosamente. Un secretario de la comisión deberá aprobarla para que aparezca en el calendario.';
     }
-  } catch (e) {
-    console.error(e);
-    errorMessage = 'Error al guardar el evento. Revisa los datos.';
+  } catch (e: any) {
+    error = e.message || 'Error al proponer el evento.';
   }
 }
 ---
 
-<AppLayout title="Crear Evento">
-  <div class="max-w-4xl mx-auto">
-    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
-      <a href="/admin/agenda" class="text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] uppercase tracking-widest flex items-center gap-2 mb-4">
-        ← Volver al Gestor
-      </a>
-      <h1 class="text-4xl font-black uppercase tracking-tighter">Agendar Nuevo Evento</h1>
+<AppLayout title="Proponer Evento Orgánico">
+  <div class="max-w-2xl mx-auto mt-8">
+    <div class="mb-10 border-b-4 border-[var(--color-foreground)] pb-6">
+      <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Proponer Evento</h1>
+      <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Las propuestas serán revisadas por los Secretarios de la comisión designada.</p>
     </div>
 
-    {errorMessage && (
-      <div class="bg-red-100 border-l-4 border-red-500 p-4 mb-8 text-red-700 font-bold uppercase tracking-widest text-sm">
-        {errorMessage}
+    {error && (
+      <div class="bg-red-50 border-2 border-red-600 text-red-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#dc2626]">
+        {error}
       </div>
     )}
 
-    <form method="POST" enctype="multipart/form-data" class="space-y-8">
-      <div class="space-y-2">
-        <label for="title" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Evento *</label>
-        <input 
-          type="text" 
-          id="title" 
-          name="title" 
-          required 
-          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 text-xl font-bold focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
-          placeholder="Ej: Pleno del Comité Central"
-        />
+    {success ? (
+      <div class="bg-green-50 border-2 border-green-600 text-green-700 p-8 text-center shadow-[8px_8px_0px_0px_#16a34a]">
+        <h2 class="text-2xl font-black uppercase mb-4">¡Propuesta Enviada!</h2>
+        <p class="font-bold mb-6">{success}</p>
+        <a href="/agenda" class="inline-block bg-[var(--color-foreground)] text-white px-6 py-3 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-primary)] transition-colors">Volver a la Agenda</a>
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="space-y-2">
-          <label for="startDate" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Fecha y Hora *</label>
-          <input 
-            type="datetime-local" 
-            id="startDate" 
-            name="startDate" 
-            required 
-            class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-3 font-bold focus:outline-none focus:border-[var(--color-primary)]"
-          />
-        </div>
+    ) : (
+      <form method="POST" class="space-y-6 bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-8 shadow-[8px_8px_0px_0px_var(--color-foreground)]">
         
         <div class="space-y-2">
-          <label for="location" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Ubicación / Plataforma</label>
-          <input 
-            type="text" 
-            id="location" 
-            name="location" 
-            class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-3 font-bold focus:outline-none focus:border-[var(--color-primary)]"
-            placeholder="Ej: Sede Central / Zoom"
-          />
+          <label for="organizationId" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Comisión u Órgano Organizador *</label>
+          <select id="organizationId" name="organizationId" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none cursor-pointer">
+            <option value="">Selecciona una comisión...</option>
+            {organizations.map(org => (
+              <option value={org.id}>{org.name} ({org.type})</option>
+            ))}
+          </select>
         </div>
-      </div>
 
-      <div class="space-y-2">
-        <label for="requiredClearance" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Nivel de Acceso Requerido</label>
-        <select 
-          id="requiredClearance" 
-          name="requiredClearance" 
-          class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-3 font-bold focus:outline-none focus:border-[var(--color-primary)]"
-        >
-          <option value="1">Nivel 1 - Nacional / Público</option>
-          <option value="2">Nivel 2 - Regional</option>
-          <option value="3">Nivel 3 - Comunal / Restringido</option>
-        </select>
-        <p class="text-[10px] text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest mt-1">Este nivel determinará quién puede ver el evento.</p>
-      </div>
+        <div class="space-y-2">
+          <label for="title" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Evento *</label>
+          <input type="text" id="title" name="title" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" placeholder="Ej: Reunión Ordinaria de Finanzas" />
+        </div>
 
-      <div class="space-y-2">
-        <label for="description" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción Detallada</label>
-        <textarea 
-          id="description" 
-          name="description" 
-          rows="6" 
-          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
-          placeholder="Detalles de la convocatoria..."
-        ></textarea>
-      </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-2">
+            <label for="date" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Fecha *</label>
+            <input type="date" id="date" name="date" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" />
+          </div>
+          <div class="space-y-2">
+            <label for="time" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Hora *</label>
+            <input type="time" id="time" name="time" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" />
+          </div>
+        </div>
 
-      <div class="pt-6 border-t-4 border-[var(--color-foreground)] flex justify-end gap-4">
-        <a href="/admin/agenda" class="px-6 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-[var(--color-secondary)] transition-colors">
-          Cancelar
-        </a>
-        <button type="submit" class="bg-[var(--color-primary)] text-white px-8 py-4 font-black uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0px_0px_var(--color-foreground)] transition-all">
-          Agendar Evento
-        </button>
-      </div>
-    </form>
+        <div class="space-y-2">
+          <label for="location" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Ubicación o Enlace</label>
+          <input type="text" id="location" name="location" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" placeholder="Ej: Sede Central / Zoom" />
+        </div>
+
+        <div class="space-y-2">
+          <label for="description" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción / Orden del Día *</label>
+          <textarea id="description" name="description" required rows="4" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" placeholder="Puntos a tratar en el evento..."></textarea>
+        </div>
+
+        <div class="pt-4 border-t-2 border-[var(--color-border)]">
+          <button type="submit" class="w-full bg-[var(--color-primary)] text-white px-6 py-4 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+            Enviar Propuesta
+          </button>
+        </div>
+      </form>
+    )}
   </div>
 </AppLayout>

@@ -29,6 +29,13 @@
       "when": 1784859815862,
       "tag": "0003_quick_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784861522716,
+      "tag": "0004_strong_bishop",
+      "breakpoints": true
     }
   ]
 }

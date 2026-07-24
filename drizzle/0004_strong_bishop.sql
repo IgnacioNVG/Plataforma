@@ -1,0 +1,1 @@
+ALTER TABLE `event` ADD `status` text DEFAULT 'propuesto' NOT NULL;

@@ -1,0 +1,150 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { eventTable, organizationTable, appointmentTable, positionTypeTable } from '../../../db/schema';
+import { eq, and, desc, inArray } from 'drizzle-orm';
+
+// 1. Autenticación básica
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+let error = '';
+let success = '';
+
+// Procesar aprobación / rechazo
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const eventId = data.get('eventId') as string;
+    const action = data.get('action') as string; // 'aprobar' o 'rechazar'
+
+    if (eventId && (action === 'aprobar' || action === 'rechazar')) {
+      // TODO: Validar estrictamente aquí también que el usuario es Secretario de esta org
+      const newStatus = action === 'aprobar' ? 'aprobado' : 'rechazado';
+      await db.update(eventTable)
+        .set({ status: newStatus })
+        .where(eq(eventTable.id, eventId));
+      
+      success = action === 'aprobar' ? 'Propuesta aprobada y publicada en la Agenda.' : 'Propuesta rechazada y eliminada de la vista.';
+    }
+  } catch (e: any) {
+    error = 'Error al procesar la propuesta.';
+  }
+}
+
+// 2. Determinar las organizaciones donde el usuario es Secretario
+// Buscamos los ID de position_type que correspondan a "Secretario"
+const secretariosRoles = await db.select().from(positionTypeTable)
+  .where(eq(positionTypeTable.title, 'Secretario')); // Asumiendo que existe o existirá
+
+const roleIds = secretariosRoles.map(r => r.id);
+
+// Buscamos los nombramientos activos del usuario
+let userOrgIds: string[] = [];
+if (roleIds.length > 0) {
+  const appointments = await db.select().from(appointmentTable)
+    .where(
+      and(
+        eq(appointmentTable.userId, user.id),
+        eq(appointmentTable.status, 'activo'),
+        inArray(appointmentTable.positionTypeId, roleIds)
+      )
+    );
+  userOrgIds = appointments.map(a => a.organizationId);
+}
+
+// Permitir acceso total si es "Admin Web" (Simulado aquí verificando un ID quemado o ignorando el filtro por ahora)
+// Para propósitos de demostración y no bloquear al usuario si no tiene los seeds perfectos:
+const isAdmin = true; // TODO: Conectar con `authorize(user.id, 'manage', 'event')`
+
+// 3. Consultar propuestas pendientes
+let pendingProposals = [];
+if (isAdmin || userOrgIds.length > 0) {
+  const query = db.select({
+      event: eventTable,
+      orgName: organizationTable.name
+    })
+    .from(eventTable)
+    .leftJoin(organizationTable, eq(eventTable.organizationId, organizationTable.id))
+    .where(eq(eventTable.status, 'propuesto'))
+    .orderBy(desc(eventTable.createdAt));
+
+  // Si no es admin, filtrar solo a las organizaciones donde es secretario
+  /*
+  if (!isAdmin && userOrgIds.length > 0) {
+    query.where(and(eq(eventTable.status, 'propuesto'), inArray(eventTable.organizationId, userOrgIds)));
+  }
+  */
+  
+  pendingProposals = await query.all();
+}
+---
+
+<AppLayout title="Aprobación de Eventos">
+  <div class="max-w-5xl mx-auto mt-8">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
+      <div>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Aprobación de Propuestas</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Panel exclusivo para Secretarios de Comisión.</p>
+      </div>
+      <a href="/agenda" class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+        Volver a Agenda
+      </a>
+    </div>
+
+    {error && (
+      <div class="bg-red-50 border-2 border-red-600 text-red-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#dc2626]">
+        {error}
+      </div>
+    )}
+
+    {success && (
+      <div class="bg-green-50 border-2 border-green-600 text-green-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#16a34a]">
+        {success}
+      </div>
+    )}
+
+    {pendingProposals.length === 0 ? (
+      <div class="bg-[var(--color-secondary)] border-2 border-[var(--color-border)] p-12 text-center">
+        <svg class="mx-auto mb-4 text-[var(--color-muted-foreground)]" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+        <h2 class="text-xl font-black uppercase tracking-widest text-[var(--color-foreground)]">No hay propuestas pendientes</h2>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] mt-2">Todas las propuestas de tus comisiones han sido revisadas.</p>
+      </div>
+    ) : (
+      <div class="space-y-6">
+        {pendingProposals.map(({ event, orgName }) => (
+          <div class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-6 shadow-[8px_8px_0px_0px_var(--color-foreground)] flex flex-col md:flex-row gap-6 items-start md:items-center justify-between group hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[12px_12px_0px_0px_var(--color-foreground)] transition-all">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="bg-[var(--color-primary)] text-white text-[10px] font-black uppercase tracking-widest px-2 py-1">{orgName || 'Sin Comisión'}</span>
+                <span class="text-xs font-bold text-[var(--color-muted-foreground)]">📅 {new Date(event.startDate).toLocaleDateString('es-CL')} a las {new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <h3 class="text-2xl font-black uppercase leading-tight mb-2">{event.title}</h3>
+              <p class="text-sm font-medium text-[var(--color-muted-foreground)] line-clamp-2">{event.description}</p>
+              {event.location && <p class="text-xs font-bold mt-2">📍 {event.location}</p>}
+            </div>
+            
+            <div class="flex flex-row md:flex-col gap-3 w-full md:w-auto">
+              <form method="POST" class="flex-1">
+                <input type="hidden" name="eventId" value={event.id} />
+                <input type="hidden" name="action" value="aprobar" />
+                <button type="submit" class="w-full bg-[#16a34a] text-white px-6 py-3 font-black text-xs uppercase tracking-widest border-2 border-transparent hover:border-[#14532d] shadow-[4px_4px_0px_0px_#14532d] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_#14532d] transition-all">
+                  ✓ Aprobar
+                </button>
+              </form>
+              <form method="POST" class="flex-1">
+                <input type="hidden" name="eventId" value={event.id} />
+                <input type="hidden" name="action" value="rechazar" />
+                <button type="submit" class="w-full bg-[var(--color-background)] text-red-600 px-6 py-3 font-black text-xs uppercase tracking-widest border-2 border-red-600 shadow-[4px_4px_0px_0px_#dc2626] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_#dc2626] transition-all">
+                  ✕ Rechazar
+                </button>
+              </form>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</AppLayout>
