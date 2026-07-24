@@ -10,6 +10,10 @@ if (!user) {
   return Astro.redirect('/validacion');
 }
 
+// Leer fecha pre-seleccionada de la URL
+const urlParams = new URL(Astro.request.url).searchParams;
+const defaultDate = urlParams.get('date') || '';
+
 // Cargar lista de comisiones/organizaciones para proponer el evento
 const organizations = await db.select().from(organizationTable).all();
 
@@ -90,7 +94,7 @@ if (Astro.request.method === 'POST') {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="space-y-2">
             <label for="date" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Fecha *</label>
-            <input type="date" id="date" name="date" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" />
+            <input type="date" id="date" name="date" value={defaultDate} required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none" />
           </div>
           <div class="space-y-2">
             <label for="time" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Hora *</label>

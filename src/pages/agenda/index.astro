@@ -5,41 +5,79 @@ import { db } from '../../db';
 import { eventTable, organizationTable } from '../../db/schema';
 import { gte, lte, and, eq } from 'drizzle-orm';
 
-// Navegación de Mes
+// Navegación de Vista y Fecha
 const urlParams = new URL(Astro.request.url).searchParams;
-const monthParam = urlParams.get('mes');
+const viewType = urlParams.get('vista') || 'mes'; // 'mes' o 'semana'
+const dateParam = urlParams.get('fecha');
 
 let currentDate = new Date();
-if (monthParam) {
-  const [y, m] = monthParam.split('-');
-  if (y && m) currentDate = new Date(parseInt(y), parseInt(m) - 1, 1);
+if (dateParam) {
+  const parsed = new Date(dateParam + "T00:00:00");
+  if (!isNaN(parsed.getTime())) currentDate = parsed;
 }
+
+// Para asegurar que trabajamos con el inicio del día local
+currentDate.setHours(0, 0, 0, 0);
 
 const currentYear = currentDate.getFullYear();
 const currentMonth = currentDate.getMonth();
 
-const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+let daysInGrid = [];
+let startDateForGrid = new Date();
+let prevBtnDate = new Date();
+let nextBtnDate = new Date();
+let displayTitle = '';
 
-// Para botones Ant/Sig
-const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
-const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
-const prevMonthStr = `${prevMonthDate.getFullYear()}-${(prevMonthDate.getMonth() + 1).toString().padStart(2, '0')}`;
-const nextMonthStr = `${nextMonthDate.getFullYear()}-${(nextMonthDate.getMonth() + 1).toString().padStart(2, '0')}`;
-const currentMonthName = new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(currentDate);
+if (viewType === 'mes') {
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+  let startDayOfWeek = firstDayOfMonth.getDay() - 1;
+  if (startDayOfWeek === -1) startDayOfWeek = 6; // Domingo
 
-// Lógica de Grilla (empezando en Lunes)
-let startDayOfWeek = firstDayOfMonth.getDay() - 1;
-if (startDayOfWeek === -1) startDayOfWeek = 6; // Domingo
+  startDateForGrid = new Date(firstDayOfMonth);
+  startDateForGrid.setDate(startDateForGrid.getDate() - startDayOfWeek); // Retrocede al Lunes anterior
 
-const daysInGrid = [];
-const startDateForGrid = new Date(firstDayOfMonth);
-startDateForGrid.setDate(startDateForGrid.getDate() - startDayOfWeek); // Retrocede al Lunes anterior
+  for (let i = 0; i < 42; i++) { // 6 semanas
+    daysInGrid.push(new Date(startDateForGrid));
+    startDateForGrid.setDate(startDateForGrid.getDate() + 1);
+  }
 
-for (let i = 0; i < 42; i++) { // 6 semanas * 7 días (fijo para siempre tener una grilla perfecta)
-  daysInGrid.push(new Date(startDateForGrid));
-  startDateForGrid.setDate(startDateForGrid.getDate() + 1);
+  prevBtnDate = new Date(currentYear, currentMonth - 1, 1);
+  nextBtnDate = new Date(currentYear, currentMonth + 1, 1);
+  displayTitle = new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(currentDate);
+} else {
+  // Vista Semanal
+  let dayOfWeek = currentDate.getDay() - 1;
+  if (dayOfWeek === -1) dayOfWeek = 6;
+  
+  startDateForGrid = new Date(currentDate);
+  startDateForGrid.setDate(startDateForGrid.getDate() - dayOfWeek); // Lunes de esta semana
+
+  for (let i = 0; i < 7; i++) { // 1 semana
+    daysInGrid.push(new Date(startDateForGrid));
+    startDateForGrid.setDate(startDateForGrid.getDate() + 1);
+  }
+
+  prevBtnDate = new Date(currentDate);
+  prevBtnDate.setDate(prevBtnDate.getDate() - 7);
+  nextBtnDate = new Date(currentDate);
+  nextBtnDate.setDate(nextBtnDate.getDate() + 7);
+  
+  // Título: "15 - 21 de Julio, 2026"
+  const firstDay = daysInGrid[0];
+  const lastDay = daysInGrid[6];
+  displayTitle = `${firstDay.getDate()} al ${lastDay.getDate()} de ${new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(lastDay)}`;
 }
+
+const formatDateStr = (d) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const prevBtnStr = formatDateStr(prevBtnDate);
+const nextBtnStr = formatDateStr(nextBtnDate);
+const todayStr = formatDateStr(new Date());
 
 const gridStart = daysInGrid[0];
 const gridEnd = daysInGrid[daysInGrid.length - 1];
@@ -90,15 +128,25 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
       <h1 class="text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter">Agenda Orgánica</h1>
       <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-2 border-l-4 border-[var(--color-primary)] pl-3">Planificación y eventos territoriales</p>
     </div>
-    <div class="flex gap-4">
+    <div class="flex flex-col md:flex-row gap-4 items-center">
+      <!-- Selector de Vista -->
+      <div class="flex border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)]">
+        <a href={`/agenda?vista=mes&fecha=${formatDateStr(currentDate)}`} class={`px-4 py-2 font-black text-xs uppercase tracking-widest transition-colors ${viewType === 'mes' ? 'bg-[var(--color-foreground)] text-white' : 'bg-white text-[var(--color-foreground)] hover:bg-gray-100'}`}>
+          Mes
+        </a>
+        <a href={`/agenda?vista=semana&fecha=${formatDateStr(currentDate)}`} class={`px-4 py-2 font-black text-xs uppercase tracking-widest transition-colors border-l-2 border-[var(--color-foreground)] ${viewType === 'semana' ? 'bg-[var(--color-foreground)] text-white' : 'bg-white text-[var(--color-foreground)] hover:bg-gray-100'}`}>
+          Semana
+        </a>
+      </div>
+
       <div class="hidden md:flex gap-2">
-        <a href={`/agenda?mes=${prevMonthStr}`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors block text-center">
+        <a href={`/agenda?vista=${viewType}&fecha=${prevBtnStr}`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors block text-center">
           &larr; Ant
         </a>
         <div class="bg-[var(--color-foreground)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest cursor-default flex items-center justify-center min-w-[200px]">
-          {currentMonthName}
+          {displayTitle}
         </div>
-        <a href={`/agenda?mes=${nextMonthStr}`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors block text-center">
+        <a href={`/agenda?vista=${viewType}&fecha=${nextBtnStr}`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors block text-center">
           Sig &rarr;
         </a>
       </div>
@@ -186,11 +234,12 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
             
             // Buscar eventos para este día
             const dayEvents = eventsInGrid.filter(e => new Date(e.event.startDate).toDateString() === date.toDateString());
+            const dateString = formatDateStr(date);
 
             // Determinar clases de estilo basadas en el estado del día
-            let cellClasses = "min-h-[140px] p-2 border-b-2 border-[var(--color-foreground)] relative transition-colors cursor-crosshair ";
+            let cellClasses = "min-h-[140px] p-2 border-b-2 border-[var(--color-foreground)] relative transition-colors group ";
             
-            if (!isCurrentMonth) {
+            if (!isCurrentMonth && viewType === 'mes') {
               cellClasses += "bg-gray-100 stripe-pattern text-gray-400 ";
             } else if (isToday) {
               cellClasses += "bg-[#FFF9F9] border-t-[6px] border-t-[var(--color-primary)] ";
@@ -205,11 +254,13 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
 
             return (
               <div class={cellClasses}>
-                <span class={`text-sm font-black ${isToday ? 'text-white bg-[var(--color-primary)] px-2 py-0.5 rounded-none shadow-[2px_2px_0px_0px_var(--color-foreground)] border border-[var(--color-foreground)]' : (isCurrentMonth ? 'text-[var(--color-foreground)]' : 'bg-white px-1')}`}>
+                <a href={`/admin/agenda/crear?date=${dateString}`} class="absolute inset-0 z-0" aria-label={`Crear evento el ${dateString}`} title="Haz clic para proponer un evento en este día"></a>
+                
+                <span class={`relative z-10 text-sm font-black pointer-events-none ${isToday ? 'text-white bg-[var(--color-primary)] px-2 py-0.5 rounded-none shadow-[2px_2px_0px_0px_var(--color-foreground)] border border-[var(--color-foreground)]' : (isCurrentMonth || viewType === 'semana' ? 'text-[var(--color-foreground)]' : 'bg-white px-1')}`}>
                   {date.getDate()}
                 </span>
                 
-                <div class="mt-2 flex flex-col gap-1">
+                <div class="mt-2 flex flex-col gap-1 relative z-10">
                   {dayEvents.map(({ event, orgName }) => {
                     const colorClass = event.requiredClearance === 1 
                       ? 'bg-[var(--color-primary)] text-white border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:shadow-[1px_1px_0px_0px_var(--color-foreground)]' 
@@ -224,6 +275,10 @@ const canEdit = await authorize(user?.id, 'manage', 'event');
                       </div>
                     );
                   })}
+                  
+                  <div class="hidden group-hover:flex items-center justify-center border-2 border-dashed border-[var(--color-muted-foreground)] text-[var(--color-muted-foreground)] p-1 text-[8px] font-black uppercase tracking-widest opacity-50 mt-1">
+                    + Agendar
+                  </div>
                 </div>
               </div>
             );
