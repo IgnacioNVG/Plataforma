@@ -49,6 +49,19 @@ export const sessionTable = sqliteTable('session', {
 // PADRÓN ELECTORAL / MILITANTES (SIMULADO)
 // ---------------------------------------------------------
 
+export const padronProvisorioTable = sqliteTable('padron_provisorio', {
+  id: text('id').primaryKey(),
+  rut: text('rut').notNull().unique(),
+  name: text('name').notNull(),
+  lastName: text('last_name').notNull(),
+  region: text('region'),
+  comuna: text('comuna'),
+  status: text('status').default('Activo'),
+  role: text('role').default('Militante Base'),
+  joinDate: text('join_date'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
 export const mockPadronTable = sqliteTable('mock_padron', {
   id: text('id').primaryKey(),
   rutHash: text('rut_hash').notNull().unique(),
