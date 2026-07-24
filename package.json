@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node fix-wrangler.cjs",
+    "build": "astro build",
+    "deploy": "wrangler deploy dist/server/entry.mjs --assets dist/client",
     "preview": "astro preview",
     "astro": "astro",
     "db:generate": "drizzle-kit generate",
