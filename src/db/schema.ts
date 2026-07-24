@@ -27,7 +27,7 @@ export const positionTypeTable = sqliteTable('position_type', {
 export const userTable = sqliteTable('user', {
   id: text('id').primaryKey(),
   rutHash: text('rut_hash').notNull(),
-  email: text('email').notNull().unique(),
+  email: text('email').unique(),
   name: text('name').notNull(),
   lastName: text('last_name').notNull(),
   biography: text('biography'),

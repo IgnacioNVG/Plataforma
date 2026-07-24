@@ -1,7 +1,7 @@
 ---
 import AuthLayout from '../layouts/AuthLayout.astro';
 import { cleanRut } from '../lib/rut';
-import { mockPadronTable, userTable } from '../db/schema';
+import { padronProvisorioTable, userTable } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
@@ -32,7 +32,7 @@ if (Astro.request.method === 'POST') {
       error = "Este RUT ya tiene una cuenta activa. Por favor, inicia sesión.";
     } else {
       // 2. Check Padron
-      const padronRecord = await db.select().from(mockPadronTable).where(eq(mockPadronTable.rutHash, rutHash)).get();
+      const padronRecord = await db.select().from(padronProvisorioTable).where(eq(padronProvisorioTable.rut, currentRut)).get();
       if (!padronRecord) {
         error = "No te encuentras en el Padrón Oficial. Si crees que es un error, contacta al Tribunal Supremo.";
       } else {
@@ -43,16 +43,13 @@ if (Astro.request.method === 'POST') {
   } else if (action === 'register') {
     const rawRut = data.get('rut') as string;
     currentRut = cleanRut(rawRut);
-    const email = data.get('email') as string;
     const password = data.get('password') as string;
-    const name = data.get('name') as string;
-    const lastName = data.get('lastName') as string;
 
     const pepper = import.meta.env.BLIND_INDEX_PEPPER || 'default-pepper-123';
     const rutHash = crypto.createHash('sha256').update(currentRut + pepper).digest('hex');
 
     // Double check padron
-    const padronRecord = await db.select().from(mockPadronTable).where(eq(mockPadronTable.rutHash, rutHash)).get();
+    const padronRecord = await db.select().from(padronProvisorioTable).where(eq(padronProvisorioTable.rut, currentRut)).get();
     if (padronRecord) {
       try {
         const userId = crypto.randomUUID();
@@ -61,9 +58,8 @@ if (Astro.request.method === 'POST') {
         await db.insert(userTable).values({
           id: userId,
           rutHash: rutHash,
-          email: email.toLowerCase(),
-          name: name,
-          lastName: lastName,
+          name: padronRecord.name,
+          lastName: padronRecord.lastName,
           passwordHash: passwordHash,
           isActive: true
         });
@@ -154,40 +150,8 @@ if (Astro.request.method === 'POST') {
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label for="name" class="block text-xs font-black uppercase tracking-widest">Nombre</label>
-            <input 
-              type="text" 
-              id="name" 
-              name="name"
-              required
-              value={padronData?.name || ''}
-              class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
-            />
-          </div>
-          <div class="space-y-2">
-            <label for="lastName" class="block text-xs font-black uppercase tracking-widest">Apellido</label>
-            <input 
-              type="text" 
-              id="lastName" 
-              name="lastName"
-              required
-              value={padronData?.lastName || ''}
-              class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
-            />
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <label for="email" class="block text-xs font-black uppercase tracking-widest">Correo Electrónico</label>
-          <input 
-            type="email" 
-            id="email" 
-            name="email"
-            required
-            class="w-full border-2 border-[var(--color-foreground)] bg-[var(--color-background)] px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none"
-          />
+        <div class="mb-6 border-l-4 border-[var(--color-foreground)] bg-[var(--color-secondary)] p-4 text-sm font-bold text-[var(--color-muted-foreground)]">
+          Hola <strong>{padronData?.name} {padronData?.lastName}</strong>. Crea una contraseña segura para tu cuenta. Podrás completar tu perfil (correo, biografía) más adelante dentro de la plataforma.
         </div>
 
         <div class="space-y-2">

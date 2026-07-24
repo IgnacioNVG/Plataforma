@@ -20,6 +20,7 @@ if (Astro.request.method === 'POST') {
     const formData = await Astro.request.formData();
     const name = formData.get('name') as string;
     const lastName = formData.get('lastName') as string;
+    const email = formData.get('email') as string;
     const biography = formData.get('biography') as string;
     const phone = formData.get('phone') as string;
     const avatar = formData.get('avatar');
@@ -40,6 +41,7 @@ if (Astro.request.method === 'POST') {
     await db.update(userTable).set({
       name,
       lastName,
+      email: email ? email.toLowerCase() : null,
       biography,
       phone,
       avatarUrl: newAvatarUrl
@@ -51,6 +53,7 @@ if (Astro.request.method === 'POST') {
     // Refresh dbUser local
     dbUser.name = name;
     dbUser.lastName = lastName;
+    dbUser.email = email ? email.toLowerCase() : null;
     dbUser.biography = biography;
     dbUser.phone = phone;
     dbUser.avatarUrl = newAvatarUrl;
@@ -167,11 +170,11 @@ if (Astro.request.method === 'POST') {
             <h2 class="text-xl font-black uppercase tracking-tight border-l-4 border-[var(--color-foreground)] pl-3">Contacto Seguro</h2>
             
             <div class="space-y-2">
-              <label class="block text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+              <label for="email" class="block text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                 Correo Electrónico 
                 <span class="bg-[var(--color-foreground)] text-white text-[9px] px-1.5 py-0.5 rounded-sm">Primario</span>
               </label>
-              <input type="email" value={dbUser.email} class="w-full border-2 border-[var(--color-foreground)] px-4 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)] bg-[var(--color-secondary)]" readonly title="Para cambiar tu correo principal contacta a soporte orgánico." />
+              <input type="email" id="email" name="email" value={dbUser.email || ''} class="w-full border-2 border-[var(--color-foreground)] px-4 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)]" placeholder="Ingresa tu correo" />
             </div>
 
             <div class="space-y-2">
