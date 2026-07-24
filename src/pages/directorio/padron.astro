@@ -92,7 +92,7 @@ const padronDb = await db.select().from(padronProvisorioTable).all();
           </tr>
         </thead>
         <tbody class="divide-y-2 divide-[var(--color-border)]">
-          {mockPadron.map(militante => (
+          {padronDb.map(militante => (
             <tr class="hover:bg-[var(--color-secondary)] transition-colors group">
               <td class="p-4">
                 <span class="font-mono text-sm font-bold bg-[var(--color-muted)] px-2 py-1 border border-[var(--color-border)] group-hover:border-[var(--color-primary)] transition-colors">
