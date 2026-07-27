@@ -1,0 +1,187 @@
+---
+import AppLayout from '../../../../../layouts/AppLayout.astro';
+import { db } from '../../../../../db';
+import { courseTable, notificationTable, userTable } from '../../../../../db/schema';
+import { eq } from 'drizzle-orm';
+// Global crypto used
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+const schoolId = Astro.params.schoolId;
+if (!schoolId) return Astro.redirect('/admin/escuela');
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const title = data.get('title') as string;
+    const description = data.get('description') as string;
+    const isMandatory = data.get('isMandatory') === 'on';
+    const status = data.get('status') as 'borrador' | 'publicado';
+    
+    if (!title || !description) {
+      error = 'Título y descripción son obligatorios.';
+    } else {
+      const newId = crypto.randomUUID();
+      await db.insert(courseTable).values({
+        id: newId,
+        schoolId: schoolId,
+        title,
+        description,
+        isMandatory: isMandatory === 'true',
+        status: status || 'borrador'
+      });
+      
+      // Lógica de Notificaciones
+      const sendNotification = data.get('sendNotification') === 'on';
+      if (sendNotification && status === 'publicado') {
+        const notifPriority = data.get('notifPriority') as 'alta' | 'media' | 'baja';
+        const notifDelay = parseInt(data.get('notifDelay') as string) || 0;
+        const notifSegment = data.get('notifSegment') as string;
+        
+        let targetUsers = await db.select({ id: userTable.id }).from(userTable);
+        // Aquí podríamos filtrar por `notifSegment` si tuviéramos un motor de territorios real
+        
+        let scheduledFor: Date | null = null;
+        if (notifDelay > 0) {
+          scheduledFor = new Date();
+          scheduledFor.setHours(scheduledFor.getHours() + notifDelay);
+        }
+        
+        const notifications = targetUsers.map(u => ({
+          id: crypto.randomUUID(),
+          userId: u.id,
+          title: `Nuevo Curso Disponible: ${title}`,
+          content: `Se ha publicado un nuevo curso en la escuela. <br/><br/><strong>Descripción:</strong> ${description}`,
+          priority: notifPriority,
+          label: 'Curso',
+          scheduledFor,
+          link: `/escuela/curso/${newId}`
+        }));
+        
+        if (notifications.length > 0) {
+          await db.insert(notificationTable).values(notifications);
+        }
+      }
+      
+      return Astro.redirect(`/admin/escuela/${schoolId}/editar`);
+    }
+  } catch (e: any) {
+    error = e.message || 'Error al crear el curso.';
+  }
+}
+---
+
+<AppLayout title="Crear Curso">
+  <div class="max-w-3xl mx-auto mt-8">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
+      <div>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Nuevo Curso</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Diseña un nuevo programa de formación.</p>
+      </div>
+      <a href={`/admin/escuela/${schoolId}/editar`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+        Volver
+      </a>
+    </div>
+
+    {error && (
+      <div class="bg-red-50 border-2 border-red-600 text-red-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#dc2626]">
+        {error}
+      </div>
+    )}
+
+    <form method="POST" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-8 shadow-[8px_8px_0px_0px_var(--color-foreground)] space-y-6">
+      
+      <div class="space-y-2">
+        <label for="title" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Curso *</label>
+        <input type="text" id="title" name="title" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="Ej: Historia del Movimiento Obrero..." />
+      </div>
+
+      <div class="space-y-2">
+        <label for="description" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción Breve *</label>
+        <textarea id="description" name="description" required rows="3" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="¿De qué trata este curso?"></textarea>
+      </div>
+
+      <div class="flex flex-col md:flex-row gap-6 p-4 border-2 border-[var(--color-border)] bg-[var(--color-secondary)]">
+        <div class="flex-1 space-y-2">
+          <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Carácter del Curso</label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="isMandatory" class="w-5 h-5 accent-[var(--color-primary)] border-2 border-[var(--color-foreground)]" />
+            <span class="font-bold text-sm">Es Obligatorio para Militantes</span>
+          </label>
+        </div>
+        
+        <div class="flex-1 space-y-2">
+          <label for="status" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Estado de Publicación</label>
+          <select id="status" name="status" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-2 font-bold focus:outline-none rounded-none">
+            <option value="borrador">Borrador (No visible)</option>
+            <option value="publicado">Publicado (Visible en Catálogo)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Sección de Notificaciones -->
+      <div class="p-6 border-2 border-[var(--color-primary)] bg-[var(--color-background)] space-y-4">
+        <div class="flex items-center gap-3 border-b-2 border-[var(--color-primary)] pb-4 mb-4">
+          <input type="checkbox" id="sendNotification" name="sendNotification" class="w-6 h-6 accent-[var(--color-primary)] border-2 border-[var(--color-foreground)] cursor-pointer" />
+          <label for="sendNotification" class="text-lg font-black uppercase tracking-tight text-[var(--color-foreground)] cursor-pointer">Activar Notificación de Lanzamiento</label>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 opacity-50 transition-opacity" id="notificationConfig">
+          <div class="space-y-2">
+            <label for="notifPriority" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Prioridad</label>
+            <select id="notifPriority" name="notifPriority" disabled class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold focus:outline-none rounded-none">
+              <option value="baja">Baja (Gris)</option>
+              <option value="media" selected>Media (Primario)</option>
+              <option value="alta">Alta (Urgente / Rojo)</option>
+            </select>
+          </div>
+          <div class="space-y-2">
+            <label for="notifSegment" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Segmento</label>
+            <select id="notifSegment" name="notifSegment" disabled class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold focus:outline-none rounded-none">
+              <option value="todos">Todos los Usuarios</option>
+              <option value="territorio">Solo Territorio Local</option>
+            </select>
+          </div>
+          <div class="space-y-2">
+            <label for="notifDelay" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Retraso de Envío</label>
+            <select id="notifDelay" name="notifDelay" disabled class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold focus:outline-none rounded-none">
+              <option value="0">Inmediato</option>
+              <option value="1">En 1 hora</option>
+              <option value="24">Mañana (24 horas)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <script>
+        document.addEventListener('astro:page-load', () => {
+          const checkbox = document.getElementById('sendNotification') as HTMLInputElement;
+          const configDiv = document.getElementById('notificationConfig');
+          const selects = configDiv?.querySelectorAll('select');
+          
+          if (checkbox && configDiv && selects) {
+            checkbox.addEventListener('change', (e) => {
+              if (checkbox.checked) {
+                configDiv.classList.remove('opacity-50');
+                selects.forEach(s => s.disabled = false);
+              } else {
+                configDiv.classList.add('opacity-50');
+                selects.forEach(s => s.disabled = true);
+              }
+            });
+          }
+        });
+      </script>
+
+      <div class="pt-6 border-t-2 border-[var(--color-foreground)]">
+        <button type="submit" class="w-full bg-[var(--color-primary)] text-white px-8 py-4 font-black text-sm uppercase tracking-widest border-2 border-transparent hover:border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+          Guardar y Crear Curso
+        </button>
+      </div>
+    </form>
+  </div>
+</AppLayout>

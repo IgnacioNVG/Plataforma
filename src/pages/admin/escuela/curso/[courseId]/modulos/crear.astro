@@ -1,0 +1,102 @@
+---
+import AppLayout from '../../../../../../layouts/AppLayout.astro';
+import { db } from '../../../../../../db';
+import { courseTable, moduleTable } from '../../../../../../db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+const courseId = Astro.params.courseId;
+if (!courseId) return Astro.redirect('/admin/escuela');
+
+// Obtener curso
+const [course] = await db.select().from(courseTable).where(eq(courseTable.id, courseId));
+if (!course) {
+  return Astro.redirect('/admin/escuela');
+}
+
+// Obtener número del próximo módulo
+const existingModules = await db.select({ order: moduleTable.order }).from(moduleTable).where(eq(moduleTable.courseId, courseId)).orderBy(desc(moduleTable.order));
+const nextOrder = existingModules.length > 0 ? existingModules[0].order + 1 : 1;
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const title = data.get('title') as string;
+    const content = data.get('content') as string; // Markdown
+    const order = data.get('order') as string;
+    
+    if (!title || !content) {
+      error = 'El título y el contenido son obligatorios.';
+    } else {
+      const newId = crypto.randomUUID();
+      await db.insert(moduleTable).values({
+        id: newId,
+        courseId: courseId,
+        title,
+        content: content || '',
+        order: nextOrder
+      });
+      
+      return Astro.redirect(`/admin/escuela/curso/${courseId}/editar`);
+    }
+  } catch (e: any) {
+    error = e.message || 'Error al crear el módulo.';
+  }
+}
+---
+
+<AppLayout title={`Añadir Módulo: ${course.title}`}>
+  <div class="max-w-4xl mx-auto mt-8">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
+      <div>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Añadir Módulo</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Añadir contenido al curso: {course.title}</p>
+      </div>
+      <a href={`/admin/escuela/curso/${courseId}/editar`} class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+        Volver al Curso
+      </a>
+    </div>
+
+    {error && (
+      <div class="bg-red-50 border-2 border-red-600 text-red-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#dc2626]">
+        {error}
+      </div>
+    )}
+
+    <form method="POST" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-6 md:p-8 shadow-[8px_8px_0px_0px_var(--color-foreground)] space-y-6">
+      
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="md:col-span-3 space-y-2">
+          <label for="title" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Módulo *</label>
+          <input type="text" id="title" name="title" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="Ej: La Cuestión Social..." />
+        </div>
+        
+        <div class="space-y-2">
+          <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Orden</label>
+          <div class="w-full border-2 border-[var(--color-border)] bg-gray-100 px-4 py-3 font-bold text-center text-[var(--color-muted-foreground)]">
+            # {nextOrder}
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="content" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Contenido del Módulo (Soporta Markdown) *</label>
+        <p class="text-xs text-[var(--color-muted-foreground)] mb-2">Puedes usar `## Títulos`, `**negritas**`, `[enlaces](url)`, y listas.</p>
+        <textarea id="content" name="content" required rows="15" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-mono text-sm focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="# Bienvenida al Módulo\n\nEste es el contenido..."></textarea>
+      </div>
+
+      <div class="pt-6 border-t-2 border-[var(--color-foreground)]">
+        <button type="submit" class="w-full bg-[var(--color-primary)] text-white px-8 py-4 font-black text-sm uppercase tracking-widest border-2 border-transparent hover:border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+          Guardar Módulo
+        </button>
+      </div>
+    </form>
+  </div>
+</AppLayout>

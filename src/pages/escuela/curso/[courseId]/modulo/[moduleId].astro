@@ -1,0 +1,133 @@
+---
+import AppLayout from '../../../../../layouts/AppLayout.astro';
+import { db } from '../../../../../db';
+import { moduleTable, courseTable, moduleProgressTable, enrollmentTable } from '../../../../../db/schema';
+import { parseMarkdown } from '../../../../../lib/markdown';
+import { eq, and, desc } from 'drizzle-orm';
+
+import { marked } from 'marked';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+const courseId = Astro.params.courseId;
+const moduleId = Astro.params.moduleId;
+if (!courseId || !moduleId) return Astro.redirect('/escuela');
+
+// Verificar curso y módulo
+const [course] = await db.select().from(courseTable).where(eq(courseTable.id, courseId));
+const [module] = await db.select().from(moduleTable).where(eq(moduleTable.id, moduleId));
+if (!course || !module || module.courseId !== course.id) return Astro.redirect('/escuela');
+
+// Verificar inscripción
+const [enrollment] = await db.select().from(enrollmentTable).where(
+  and(eq(enrollmentTable.userId, user.id), eq(enrollmentTable.courseId, courseId))
+);
+if (!enrollment) return Astro.redirect('/escuela/catalogo');
+
+// Verificar estado de completado
+const [progressRecord] = await db.select().from(moduleProgressTable).where(
+  and(eq(moduleProgressTable.enrollmentId, enrollment.id), eq(moduleProgressTable.moduleId, moduleId))
+);
+const isCompleted = !!progressRecord;
+
+// Navegación
+const allModules = await db.select().from(moduleTable).where(eq(moduleTable.courseId, courseId)).orderBy(moduleTable.order);
+const currentIndex = allModules.findIndex(m => m.id === moduleId);
+const prevModule = currentIndex > 0 ? allModules[currentIndex - 1] : null;
+const nextModule = currentIndex < allModules.length - 1 ? allModules[currentIndex + 1] : null;
+
+// Marcar como completado
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    if (data.get('action') === 'complete') {
+      if (!isCompleted) {
+        await db.insert(moduleProgressTable).values({
+          id: crypto.randomUUID(),
+          enrollmentId: enrollment.id,
+          moduleId: module.id
+        });
+        
+        // Recalcular progreso en enrollmentTable
+        const completedCount = (await db.select().from(moduleProgressTable).where(eq(moduleProgressTable.enrollmentId, enrollment.id))).length;
+        const totalCount = allModules.length;
+        const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+        
+        await db.update(enrollmentTable).set({
+          progressPercentage: percentage,
+          status: percentage === 100 ? 'completado' : 'en_progreso'
+        }).where(eq(enrollmentTable.id, enrollment.id));
+      }
+      
+      if (nextModule) {
+        return Astro.redirect(`/escuela/curso/${courseId}/modulo/${nextModule.id}`);
+      } else {
+        return Astro.redirect(`/escuela/curso/${courseId}`);
+      }
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+const htmlContent = marked.parse(module.content);
+---
+
+<AppLayout title={`${module.title} - ${course.title}`}>
+  <div class="max-w-3xl mx-auto mt-8 relative">
+    
+    <!-- Botón Volver -->
+    <a href={`/escuela/curso/${courseId}`} class="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors mb-6">
+      &larr; Volver al Sílabo
+    </a>
+
+    <!-- Encabezado del Módulo -->
+    <div class="mb-10 text-center">
+      <span class="inline-block bg-[var(--color-foreground)] text-white text-[10px] uppercase font-black tracking-widest px-3 py-1 shadow-[2px_2px_0px_0px_var(--color-primary)] border border-transparent mb-4">
+        Módulo {module.order} de {allModules.length}
+      </span>
+      <h1 class="text-4xl md:text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none mb-4">{module.title}</h1>
+      <p class="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest">{course.title}</p>
+    </div>
+
+    <!-- Contenido del Módulo -->
+    <article class="bg-white border-4 border-[var(--color-foreground)] p-6 md:p-12 shadow-[8px_8px_0px_0px_var(--color-foreground)] mb-12 prose prose-stone max-w-none prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tighter prose-a:text-[var(--color-primary)] prose-a:font-bold prose-strong:font-black prose-strong:bg-[var(--color-secondary)] prose-strong:px-1 prose-img:border-4 prose-img:border-[var(--color-foreground)]">
+      <div set:html={htmlContent} />
+    </article>
+
+    <!-- Controles Inferiores -->
+    <div class="flex flex-col md:flex-row justify-between items-center gap-6 border-t-4 border-dashed border-[var(--color-border)] pt-8 pb-16">
+      
+      <div>
+        {prevModule && (
+          <a href={`/escuela/curso/${courseId}/modulo/${prevModule.id}`} class="text-xs font-black uppercase tracking-widest hover:text-[var(--color-primary)] transition-colors">
+            &larr; Módulo {prevModule.order}
+          </a>
+        )}
+      </div>
+
+      <div class="w-full md:w-auto">
+        <form method="POST">
+          <input type="hidden" name="action" value="complete" />
+          <button type="submit" class={`w-full bg-[var(--color-primary)] text-white px-8 py-4 font-black text-sm uppercase tracking-widest border-2 border-transparent shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all flex items-center justify-center gap-2 ${isCompleted ? 'bg-[#16a34a] border-[#14532d] shadow-[4px_4px_0px_0px_#14532d]' : ''}`}>
+            {isCompleted ? (
+              <>
+                <span>✓ Completado</span>
+                {nextModule && <span class="ml-2 pl-2 border-l border-white/30">Continuar al {nextModule.order} &rarr;</span>}
+              </>
+            ) : (
+              <>
+                <span>Marcar como Leído</span>
+                {nextModule ? <span class="ml-2 pl-2 border-l border-white/30">Ir al Módulo {nextModule.order} &rarr;</span> : <span class="ml-2 pl-2 border-l border-white/30">Terminar Curso ✓</span>}
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</AppLayout>

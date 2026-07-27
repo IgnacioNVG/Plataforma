@@ -1,0 +1,76 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { eq, and } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+// Fetch published schools
+const allSchools = await db.select().from(schoolTable).where(eq(schoolTable.status, 'publicado'));
+
+// Count courses per school
+const allCourses = await db.select({ id: courseTable.id, schoolId: courseTable.schoolId }).from(courseTable).where(eq(courseTable.status, 'publicado'));
+const coursesCount = allCourses.reduce((acc, course) => {
+  acc[course.schoolId] = (acc[course.schoolId] || 0) + 1;
+  return acc;
+}, {} as Record<string, number>);
+
+---
+
+<AppLayout title="Catálogo de Escuelas">
+  <!-- Header de Sección -->
+  <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+    <div>
+      <span class="text-[var(--color-primary)] font-black text-xs uppercase tracking-widest mb-2 block">Instituto Igualdad</span>
+      <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Catálogo de Escuelas</h1>
+      <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Explora nuestros programas de formación agrupados.</p>
+    </div>
+    
+    <!-- Tabs Navigation -->
+    <div class="flex gap-4">
+      <a href="/escuela" class="text-sm font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors">Mis Escuelas</a>
+      <span class="text-sm font-black uppercase tracking-widest border-b-4 border-[var(--color-foreground)] pb-1">Catálogo</span>
+    </div>
+  </div>
+
+  {allSchools.length === 0 ? (
+    <div class="bg-[var(--color-secondary)] border-2 border-[var(--color-border)] p-12 text-center">
+      <h2 class="text-xl font-black uppercase tracking-widest text-[var(--color-foreground)]">No hay escuelas disponibles</h2>
+      <p class="text-sm font-bold text-[var(--color-muted-foreground)] mt-2">Pronto se publicarán nuevos espacios de formación.</p>
+    </div>
+  ) : (
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {allSchools.map(school => {
+        const count = coursesCount[school.id] || 0;
+
+        return (
+          <div class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-foreground)] flex flex-col group hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[12px_12px_0px_0px_var(--color-foreground)] transition-all">
+            
+            <div class="h-32 bg-[var(--color-secondary)] border-b-4 border-[var(--color-foreground)] relative overflow-hidden flex-shrink-0 flex items-center justify-center">
+              <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 2px 2px, black 1px, transparent 0); background-size: 16px 16px;"></div>
+              
+              <div class="absolute top-2 left-2 flex gap-2">
+                <span class="bg-white text-[var(--color-foreground)] text-[10px] uppercase font-black tracking-widest px-2 py-1 shadow-[2px_2px_0px_0px_var(--color-foreground)] border border-[var(--color-foreground)]">
+                  {count} Cursos
+                </span>
+              </div>
+              <h2 class="text-6xl text-[var(--color-border)] opacity-20 font-black relative z-0">🎓</h2>
+            </div>
+
+            <div class="p-6 flex flex-col flex-grow">
+              <h3 class="text-xl font-black uppercase leading-tight mb-2 group-hover:text-[var(--color-primary)] transition-colors">{school.name}</h3>
+              <p class="text-sm font-medium text-[var(--color-muted-foreground)] line-clamp-3 mb-6 flex-grow">{school.description}</p>
+              
+              <a href={`/escuela/escuela/${school.id}`} class="w-full block text-center bg-[var(--color-foreground)] text-white px-6 py-3 font-black text-xs uppercase tracking-widest border-2 border-transparent shadow-[4px_4px_0px_0px_var(--color-primary)] hover:border-[var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all mt-auto">
+                Ver Cursos
+              </a>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</AppLayout>

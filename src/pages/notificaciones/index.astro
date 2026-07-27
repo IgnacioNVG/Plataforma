@@ -1,5 +1,62 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { notificationTable } from '../../db/schema';
+import { eq, and, desc, lte, or, isNull } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const currentTab = Astro.url.searchParams.get('tab') || 'inbox';
+
+// Obtenemos notificaciones para el tab correspondiente (y que ya cumplieron fecha)
+const notificaciones = await db.select()
+  .from(notificationTable)
+  .where(
+    and(
+      eq(notificationTable.userId, user.id),
+      eq(notificationTable.isArchived, currentTab === 'historial'),
+      or(
+        isNull(notificationTable.scheduledFor),
+        lte(notificationTable.scheduledFor, new Date())
+      )
+    )
+  )
+  .orderBy(desc(notificationTable.createdAt));
+
+// Formato de fechas
+const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+const formatter = new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+
+function getRelativeTime(date: Date) {
+  const diffInSeconds = (date.getTime() - new Date().getTime()) / 1000;
+  const diffInMinutes = diffInSeconds / 60;
+  const diffInHours = diffInMinutes / 60;
+  const diffInDays = diffInHours / 24;
+
+  if (Math.abs(diffInDays) > 7) {
+    return formatter.format(date);
+  }
+  if (Math.abs(diffInDays) >= 1) return rtf.format(Math.round(diffInDays), 'day');
+  if (Math.abs(diffInHours) >= 1) return rtf.format(Math.round(diffInHours), 'hour');
+  if (Math.abs(diffInMinutes) >= 1) return rtf.format(Math.round(diffInMinutes), 'minute');
+  return "Ahora mismo";
+}
+
+// Colores por prioridad
+const priorityStyles = {
+  alta: "border-red-500 shadow-[4px_4px_0px_0px_#ef4444]",
+  media: "border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)]",
+  baja: "border-[var(--color-muted-foreground)] shadow-[4px_4px_0px_0px_var(--color-muted-foreground)]"
+};
+
+const dotStyles = {
+  alta: "bg-red-500",
+  media: "bg-[var(--color-primary)]",
+  baja: "bg-[var(--color-muted-foreground)]"
+};
 ---
 
 <AppLayout title="Notificaciones">
@@ -10,57 +67,137 @@ import AppLayout from '../../layouts/AppLayout.astro';
         <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tight">Centro de<br/>Alertas</h1>
       </div>
       <div class="text-right">
-        <button class="text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors">
-          Marcar todo como leído
-        </button>
+        {currentTab === 'inbox' && (
+          <button id="markAllRead" class="text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors">
+            Marcar todo como leído
+          </button>
+        )}
       </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-4 mb-6">
+      <a href="?tab=inbox" class={`px-4 py-2 text-sm font-bold uppercase tracking-widest transition-colors border-2 ${currentTab === 'inbox' ? 'bg-[var(--color-foreground)] text-white border-[var(--color-foreground)]' : 'bg-transparent text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-foreground)]'}`}>
+        Bandeja de Entrada
+      </a>
+      <a href="?tab=historial" class={`px-4 py-2 text-sm font-bold uppercase tracking-widest transition-colors border-2 ${currentTab === 'historial' ? 'bg-[var(--color-foreground)] text-white border-[var(--color-foreground)]' : 'bg-transparent text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-foreground)]'}`}>
+        Historial / Archivo
+      </a>
     </div>
 
     <!-- Lista de Notificaciones -->
     <div class="space-y-4">
-      
-      <!-- Notificación No Leída -->
-      <div class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-4 shadow-[4px_4px_0px_0px_var(--color-foreground)] flex gap-4 transition-all">
-        <div class="w-2 h-2 bg-[var(--color-primary)] rounded-full mt-2 flex-shrink-0"></div>
-        <div class="flex-1">
-          <div class="flex justify-between items-start mb-1">
-            <span class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest">Módulo: Foros</span>
-            <span class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase">Hace 10 min</span>
-          </div>
-          <p class="text-sm font-medium text-[var(--color-foreground)] leading-relaxed">
-            <strong class="font-bold">@crojas</strong> te ha mencionado en el hilo <a href="/foros/1" class="underline hover:text-[var(--color-primary)]">"Reevaluando el concepto de Estado de Bienestar"</a>.
-          </p>
+      {notificaciones.length === 0 ? (
+        <div class="p-8 text-center text-[var(--color-muted-foreground)] bg-[var(--color-secondary)] border-2 border-[var(--color-border)] border-dashed">
+          No tienes notificaciones en esta sección.
         </div>
-      </div>
-
-      <!-- Notificación No Leída -->
-      <div class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] p-4 shadow-[4px_4px_0px_0px_var(--color-foreground)] flex gap-4 transition-all">
-        <div class="w-2 h-2 bg-[var(--color-primary)] rounded-full mt-2 flex-shrink-0"></div>
-        <div class="flex-1">
-          <div class="flex justify-between items-start mb-1">
-            <span class="text-[10px] font-bold text-[var(--color-foreground)] uppercase tracking-widest">Resolución Orgánica</span>
-            <span class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase">Hace 2 horas</span>
+      ) : (
+        notificaciones.map((notif) => (
+          <div class={`bg-[var(--color-background)] border-2 p-4 flex gap-4 transition-all group 
+            ${!notif.isRead ? priorityStyles[notif.priority as keyof typeof priorityStyles] : 'border-[var(--color-border)] opacity-70 hover:opacity-100'}
+          `}>
+            <!-- Indicador No leído -->
+            <div class={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${!notif.isRead ? dotStyles[notif.priority as keyof typeof dotStyles] : 'bg-transparent'}`}></div>
+            
+            <div class="flex-1">
+              <div class="flex justify-between items-start mb-1">
+                <span class={`text-[10px] font-bold uppercase tracking-widest ${notif.priority === 'alta' ? 'text-red-500' : 'text-[var(--color-primary)]'}`}>
+                  {notif.label}
+                  {notif.priority === 'alta' && <span class="ml-2 bg-red-500 text-white px-1 py-0.5 rounded-sm">IMPORTANTE</span>}
+                </span>
+                <span class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase">
+                  {getRelativeTime(notif.scheduledFor || notif.createdAt)}
+                </span>
+              </div>
+              
+              <h3 class={`text-base font-bold ${!notif.isRead ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'}`}>
+                {notif.title}
+              </h3>
+              
+              <div class="text-sm font-medium mt-1 mb-3 text-[var(--color-foreground)] leading-relaxed prose prose-sm prose-invert" set:html={notif.content} />
+              
+              <div class="flex flex-wrap gap-2 items-center justify-between border-t border-[var(--color-border)] pt-3">
+                <!-- Enlace de acción si existe -->
+                <div>
+                  {notif.link && (
+                    <a href={notif.link} class="text-xs font-bold bg-[var(--color-secondary)] border border-[var(--color-border)] px-3 py-1 hover:border-[var(--color-foreground)] transition-colors inline-block">
+                      Ir al enlace →
+                    </a>
+                  )}
+                </div>
+                
+                <!-- Acciones Rápidas -->
+                <div class="flex gap-3">
+                  {!notif.isRead && (
+                    <button class="action-btn text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors" data-id={notif.id} data-action="read">
+                      ✓ Leído
+                    </button>
+                  )}
+                  {currentTab === 'inbox' && (
+                    <button class="action-btn text-xs font-bold text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors" data-id={notif.id} data-action="archive">
+                      Archive
+                    </button>
+                  )}
+                  {currentTab === 'historial' && (
+                    <button class="action-btn text-xs font-bold text-red-400 hover:text-red-500 transition-colors" data-id={notif.id} data-action="delete">
+                      🗑 Eliminar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <p class="text-sm font-medium text-[var(--color-foreground)] leading-relaxed">
-            Se ha subido un nuevo documento clasificado como <strong class="bg-[var(--color-foreground)] text-white px-1">INTERNO</strong> en tu territorio: <a href="/biblioteca/1" class="underline hover:text-[var(--color-primary)]">Acta Resolutiva RM Centro.pdf</a>.
-          </p>
-        </div>
-      </div>
-
-      <!-- Notificación Leída (Grisácea) -->
-      <div class="bg-[var(--color-secondary)] border border-[var(--color-border)] p-4 flex gap-4 opacity-70 hover:opacity-100 transition-opacity">
-        <div class="w-2 h-2 bg-transparent rounded-full mt-2 flex-shrink-0"></div>
-        <div class="flex-1">
-          <div class="flex justify-between items-start mb-1">
-            <span class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Escuela de Formación</span>
-            <span class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase">Ayer</span>
-          </div>
-          <p class="text-sm font-medium text-[var(--color-muted-foreground)] leading-relaxed">
-            Has completado exitosamente el curso "Historia del Movimiento Obrero". Se ha añadido la insignia a tu perfil.
-          </p>
-        </div>
-      </div>
-      
+        ))
+      )}
     </div>
   </div>
 </AppLayout>
+
+<script>
+  // Lógica cliente para las acciones rápidas
+  document.addEventListener('astro:page-load', () => {
+    
+    async function executeAction(action: string, id: string | null = null) {
+      try {
+        const res = await fetch('/api/notificaciones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, id })
+        });
+        
+        if (res.ok) {
+          // Recargar la página para ver cambios
+          window.location.reload();
+        } else {
+          console.error("Error al ejecutar acción");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    const markAllReadBtn = document.getElementById('markAllRead');
+    if (markAllReadBtn) {
+      markAllReadBtn.addEventListener('click', () => {
+        if(confirm('¿Marcar todas las notificaciones como leídas?')) {
+          executeAction('readAll');
+        }
+      });
+    }
+
+    const actionBtns = document.querySelectorAll('.action-btn');
+    actionBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLButtonElement;
+        const id = target.dataset.id;
+        const action = target.dataset.action;
+        if (id && action) {
+          if (action === 'delete') {
+            if(!confirm('¿Eliminar esta notificación permanentemente?')) return;
+          }
+          executeAction(action, id);
+        }
+      });
+    });
+  });
+</script>

@@ -1,0 +1,112 @@
+---
+import AppLayout from '../../../../layouts/AppLayout.astro';
+import { db } from '../../../../db';
+import { courseTable, moduleTable, enrollmentTable, moduleProgressTable } from '../../../../db/schema';
+import { eq, and } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+const courseId = Astro.params.courseId;
+if (!courseId) return Astro.redirect('/escuela');
+
+// Verificar curso
+const [course] = await db.select().from(courseTable).where(eq(courseTable.id, courseId));
+if (!course) return Astro.redirect('/escuela');
+
+// Verificar inscripción (si no está, redirect al catálogo)
+const [enrollment] = await db.select().from(enrollmentTable).where(
+  and(eq(enrollmentTable.userId, user.id), eq(enrollmentTable.courseId, courseId))
+);
+
+if (!enrollment) return Astro.redirect('/escuela/catalogo');
+
+// Obtener Módulos
+const modules = await db.select().from(moduleTable).where(eq(moduleTable.courseId, courseId)).orderBy(moduleTable.order);
+
+// Obtener Progreso
+const progress = await db.select().from(moduleProgressTable).where(eq(moduleProgressTable.enrollmentId, enrollment.id));
+const completedModuleIds = new Set(progress.map(p => p.moduleId));
+
+// Encontrar el primer módulo no completado (si existe) para el botón de "Continuar"
+const nextModule = modules.find(m => !completedModuleIds.has(m.id));
+
+---
+
+<AppLayout title={`Sílabo: ${course.title}`}>
+  <div class="max-w-4xl mx-auto mt-8">
+    
+    <div class="mb-10 border-b-4 border-[var(--color-foreground)] pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+      <div>
+        <a href="/escuela" class="text-[10px] font-black uppercase tracking-widest hover:text-[var(--color-primary)] transition-colors mb-4 block">&larr; Volver a Mis Cursos</a>
+        <div class="flex gap-2 mb-2">
+          {course.isMandatory && <span class="bg-[var(--color-primary)] text-white text-[10px] uppercase font-black tracking-widest px-2 py-1 shadow-[2px_2px_0px_0px_var(--color-foreground)] border border-[var(--color-foreground)]">Obligatorio</span>}
+          <span class="bg-white text-[var(--color-foreground)] text-[10px] uppercase font-black tracking-widest px-2 py-1 shadow-[2px_2px_0px_0px_var(--color-foreground)] border border-[var(--color-foreground)]">Progreso: {enrollment.progressPercentage}%</span>
+        </div>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none mt-2">{course.title}</h1>
+        <p class="text-sm font-medium text-[var(--color-muted-foreground)] mt-4 max-w-2xl">{course.description}</p>
+      </div>
+      
+      {nextModule ? (
+        <a href={`/escuela/curso/${course.id}/modulo/${nextModule.id}`} class="bg-[var(--color-foreground)] text-white px-8 py-3 font-black text-xs uppercase tracking-widest border-2 border-transparent shadow-[4px_4px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all whitespace-nowrap">
+          Continuar (Módulo {nextModule.order}) &rarr;
+        </a>
+      ) : modules.length > 0 ? (
+        <span class="bg-[#16a34a] text-white px-8 py-3 font-black text-xs uppercase tracking-widest border-2 border-[#14532d] shadow-[4px_4px_0px_0px_#14532d] flex-shrink-0">
+          ✓ Curso Completado
+        </span>
+      ) : (
+        <span class="bg-gray-200 text-gray-500 px-8 py-3 font-black text-xs uppercase tracking-widest border-2 border-gray-400">
+          Sin contenido aún
+        </span>
+      )}
+    </div>
+
+    <div class="space-y-4">
+      <h2 class="text-xl font-black uppercase tracking-widest border-b-2 border-dashed border-[var(--color-border)] pb-2 mb-6">Sílabo del Curso ({modules.length} Módulos)</h2>
+      
+      {modules.length === 0 && (
+        <div class="bg-[var(--color-secondary)] p-8 text-center border-2 border-[var(--color-border)]">
+          <p class="text-xs font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]">Este curso aún no tiene módulos publicados.</p>
+        </div>
+      )}
+
+      {modules.map(mod => {
+        const isCompleted = completedModuleIds.has(mod.id);
+        const isNext = nextModule && nextModule.id === mod.id;
+        
+        return (
+          <a href={`/escuela/curso/${course.id}/modulo/${mod.id}`} class={`block border-4 p-4 md:p-6 shadow-[8px_8px_0px_0px_var(--color-foreground)] transition-all group hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[12px_12px_0px_0px_var(--color-foreground)] ${isCompleted ? 'bg-[var(--color-secondary)] border-[var(--color-foreground)]' : (isNext ? 'bg-white border-[var(--color-primary)]' : 'bg-[var(--color-background)] border-[var(--color-foreground)]')}`}>
+            <div class="flex flex-col md:flex-row gap-4 justify-between md:items-center">
+              <div>
+                <div class="flex items-center gap-3 mb-2">
+                  <span class={`text-[10px] font-black uppercase tracking-widest ${isCompleted ? 'text-[#16a34a]' : (isNext ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]')}`}>
+                    Módulo {mod.order}
+                  </span>
+                  {isCompleted && (
+                    <span class="bg-[#16a34a] text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5">Completado</span>
+                  )}
+                  {isNext && (
+                    <span class="bg-[var(--color-primary)] text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 animate-pulse">Siguiente</span>
+                  )}
+                </div>
+                <h3 class={`text-lg font-black uppercase leading-tight group-hover:text-[var(--color-primary)] transition-colors ${isCompleted ? 'line-through opacity-70' : ''}`}>
+                  {mod.title}
+                </h3>
+              </div>
+              
+              <div class="flex-shrink-0 mt-2 md:mt-0">
+                <span class="inline-block border-2 border-[var(--color-foreground)] px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-white group-hover:bg-[var(--color-foreground)] group-hover:text-white transition-colors">
+                  {isCompleted ? 'Repasar' : 'Leer Módulo'}
+                </span>
+              </div>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+
+  </div>
+</AppLayout>

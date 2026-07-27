@@ -1,0 +1,94 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { schoolTable } from '../../../db/schema';
+// using global crypto for uuid
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const name = data.get('name') as string;
+    const description = data.get('description') as string;
+    const targetAudience = data.get('targetAudience') as string;
+    const status = data.get('status') as 'borrador' | 'publicado';
+    
+    if (!name || !description) {
+      error = 'Nombre y descripción son obligatorios.';
+    } else {
+      const newId = crypto.randomUUID();
+      await db.insert(schoolTable).values({
+        id: newId,
+        name,
+        description,
+        targetAudience: targetAudience || null,
+        status: status || 'borrador'
+      });
+      
+      return Astro.redirect('/admin/escuela');
+    }
+  } catch (e: any) {
+    error = e.message || 'Error al crear la escuela.';
+  }
+}
+---
+
+<AppLayout title="Crear Escuela">
+  <div class="max-w-3xl mx-auto mt-8">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
+      <div>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Nueva Escuela</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Abre un nuevo espacio de formación.</p>
+      </div>
+      <a href="/admin/escuela" class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+        Volver
+      </a>
+    </div>
+
+    {error && (
+      <div class="bg-red-50 border-2 border-red-600 text-red-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#dc2626]">
+        {error}
+      </div>
+    )}
+
+    <form method="POST" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-8 shadow-[8px_8px_0px_0px_var(--color-foreground)] space-y-6">
+      
+      <div class="space-y-2">
+        <label for="name" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Nombre de la Escuela *</label>
+        <input type="text" id="name" name="name" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="Ej: Escuela Alfonso Guerra..." />
+      </div>
+
+      <div class="space-y-2">
+        <label for="description" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción *</label>
+        <textarea id="description" name="description" required rows="3" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="Propósito de la escuela..."></textarea>
+      </div>
+
+      <div class="space-y-2">
+        <label for="targetAudience" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Público Objetivo</label>
+        <input type="text" id="targetAudience" name="targetAudience" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-3 font-bold focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" placeholder="Ej: Estudiantes secundarios, Militancia general..." />
+      </div>
+
+      <div class="flex flex-col md:flex-row gap-6 p-4 border-2 border-[var(--color-border)] bg-[var(--color-secondary)]">
+        <div class="flex-1 space-y-2">
+          <label for="status" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Estado de Publicación</label>
+          <select id="status" name="status" class="w-full border-2 border-[var(--color-foreground)] bg-white px-4 py-2 font-bold focus:outline-none rounded-none">
+            <option value="borrador">Borrador (No visible)</option>
+            <option value="publicado">Publicada (Visible en Catálogo)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-6 border-t-2 border-[var(--color-foreground)]">
+        <button type="submit" class="w-full bg-[var(--color-primary)] text-white px-8 py-4 font-black text-sm uppercase tracking-widest border-2 border-transparent hover:border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+          Guardar y Crear Escuela
+        </button>
+      </div>
+    </form>
+  </div>
+</AppLayout>

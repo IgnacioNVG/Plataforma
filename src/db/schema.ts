@@ -171,3 +171,70 @@ export const auditLogTable = sqliteTable('audit_log', {
   userAgent: text('user_agent'),
   timestamp: integer('timestamp', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 });
+
+// ---------------------------------------------------------
+// ESCUELA DE FORMACIÓN
+// ---------------------------------------------------------
+
+export const schoolTable = sqliteTable('school', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  targetAudience: text('target_audience'),
+  status: text('status', { enum: ['borrador', 'publicado'] }).notNull().default('publicado'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+export const courseTable = sqliteTable('course', {
+  id: text('id').primaryKey(),
+  schoolId: text('school_id').notNull().references(() => schoolTable.id),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  imageUrl: text('image_url'),
+  isMandatory: integer('is_mandatory', { mode: 'boolean' }).notNull().default(false),
+  status: text('status', { enum: ['borrador', 'publicado'] }).notNull().default('borrador'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+export const moduleTable = sqliteTable('module', {
+  id: text('id').primaryKey(),
+  courseId: text('course_id').notNull().references(() => courseTable.id),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  order: integer('order').notNull(), // Para ordenar secuencialmente
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+export const enrollmentTable = sqliteTable('enrollment', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => userTable.id),
+  courseId: text('course_id').notNull().references(() => courseTable.id),
+  status: text('status').default('en_progreso').notNull(), // 'en_progreso', 'completado'
+  progressPercentage: integer('progress_percentage').default(0).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+export const moduleProgressTable = sqliteTable('module_progress', {
+  id: text('id').primaryKey(),
+  enrollmentId: text('enrollment_id').notNull().references(() => enrollmentTable.id),
+  moduleId: text('module_id').notNull().references(() => moduleTable.id),
+  completedAt: integer('completed_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+// ---------------------------------------------------------
+// NOTIFICACIONES Y ALERTAS
+// ---------------------------------------------------------
+
+export const notificationTable = sqliteTable('notification', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => userTable.id),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  priority: text('priority', { enum: ['alta', 'media', 'baja'] }).default('media').notNull(),
+  label: text('label').notNull(), // Ej: 'Curso', 'Foro', 'Resolución', 'Sistema'
+  scheduledFor: integer('scheduled_for', { mode: 'timestamp' }), // Null = Inmediata
+  isRead: integer('is_read', { mode: 'boolean' }).default(false).notNull(),
+  isArchived: integer('is_archived', { mode: 'boolean' }).default(false).notNull(),
+  link: text('link'), // URL a redirigir
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});

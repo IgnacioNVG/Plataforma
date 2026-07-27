@@ -1,0 +1,80 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { schoolTable, courseTable } from '../../../db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/validacion');
+}
+
+const schools = await db.select().from(schoolTable).orderBy(desc(schoolTable.createdAt));
+
+// Obtener cantidad de cursos por escuela
+const courses = await db.select({ id: courseTable.id, schoolId: courseTable.schoolId }).from(courseTable);
+const coursesCount = courses.reduce((acc, c) => {
+  acc[c.schoolId] = (acc[c.schoolId] || 0) + 1;
+  return acc;
+}, {} as Record<string, number>);
+
+---
+
+<AppLayout title="Gestión de Escuela">
+  <div class="max-w-6xl mx-auto mt-8">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
+      <div>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Gestor de Escuelas</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Administración de programas de formación.</p>
+      </div>
+      <a href="/admin/escuela/crear" class="bg-[var(--color-primary)] text-white px-6 py-3 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+        + Crear Escuela
+      </a>
+    </div>
+
+    {schools.length === 0 ? (
+      <div class="bg-[var(--color-secondary)] border-2 border-[var(--color-border)] p-12 text-center">
+        <h2 class="text-xl font-black uppercase tracking-widest text-[var(--color-foreground)]">No hay escuelas creadas</h2>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] mt-2">Crea la primera escuela de formación para comenzar.</p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {schools.map(school => (
+          <div class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-6 shadow-[8px_8px_0px_0px_var(--color-foreground)] flex flex-col">
+            <div class="flex justify-between items-start mb-4">
+              <span class={`text-[10px] font-black uppercase tracking-widest px-2 py-1 ${school.status === 'publicado' ? 'bg-[#16a34a] text-white' : 'bg-gray-200 text-gray-700'}`}>
+                {school.status}
+              </span>
+              {school.targetAudience && (
+                <span class="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted-foreground)] px-2 py-1 border-2 border-[var(--color-border)]">
+                  {school.targetAudience}
+                </span>
+              )}
+            </div>
+            
+            <h3 class="text-2xl font-black uppercase leading-tight mb-2">{school.name}</h3>
+            <p class="text-sm font-medium text-[var(--color-muted-foreground)] line-clamp-3 mb-6 flex-grow">{school.description}</p>
+            
+            <div class="flex justify-between items-center mb-6 pt-4 border-t-2 border-dashed border-[var(--color-border)]">
+              <span class="text-xs font-bold uppercase tracking-widest text-[var(--color-foreground)]">
+                🎓 {coursesCount[school.id] || 0} Curso(s)
+              </span>
+              <span class="text-xs font-bold text-[var(--color-muted-foreground)]">
+                {new Date(school.createdAt).toLocaleDateString('es-CL')}
+              </span>
+            </div>
+
+            <div class="flex gap-2 mt-auto">
+              <a href={`/admin/escuela/${school.id}/editar`} class="flex-1 bg-[var(--color-secondary)] text-center text-[var(--color-foreground)] px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+                ✏️ Administrar
+              </a>
+              <a href={`/admin/escuela/${school.id}/cursos/crear`} class="flex-1 bg-[var(--color-foreground)] text-center text-white px-4 py-2 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all">
+                + Añadir Curso
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</AppLayout>
