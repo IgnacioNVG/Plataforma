@@ -134,193 +134,179 @@ function isActive(href: string) {
                 class="w-64 flex-shrink-0 bg-[var(--color-secondary)] border-r border-[var(--color-border)] flex flex-col h-screen fixed md:sticky top-0 z-50 transform -translate-x-full md:translate-x-0 transition-all duration-300 ease-in-out"
             >
                 <div
-                    class="p-6 border-b border-[var(--color-border)] flex items-center gap-3"
+                    class="p-6 border-b border-[var(--color-border)] flex items-center justify-center"
                 >
-                    <div class="relative">
-                        <img src="/logo.svg" < div />
-                        <div>
-                            <h1
-                                class="text-sm font-black tracking-tight uppercase leading-[1.1]"
-                            >
-                                Plataforma<br />Militante<br />Socialista
-                            </h1>
-                        </div>
-                    </div>
-
-                    <nav class="flex-1 overflow-y-auto py-4">
-                        <ul class="space-y-1 px-3">
-                            {
-                                navItems.map((item) => {
-                                    const active = isActive(item.href);
-                                    return (
-                                        <li class="relative">
-                                            <a
-                                                href={item.href}
-                                                class={`flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] font-medium text-sm transition-colors relative z-10 ${active ? "text-white" : "text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-border)]"}`}
-                                            >
-                                                <Fragment
-                                                    set:html={item.icon}
-                                                />
-                                                {item.name}
-                                            </a>
-                                            {active && (
-                                                <div
-                                                    transition:name="nav-active-bg"
-                                                    class="absolute inset-0 bg-[var(--color-foreground)] rounded-[var(--radius-sm)] z-0 shadow-sm border border-[var(--color-foreground)]"
-                                                />
-                                            )}
-                                        </li>
-                                    );
-                                })
-                            }
-
-                            {
-                                /* El panel de administración unificado fue eliminado a petición del usuario. Los botones de creación estarán en cada página pública respectiva. */
-                            }
-                        </ul>
-                    </nav>
-
-                    <!-- Perfil Inferior -->
-                    {
-                        Astro.locals.user && (
-                            <div class="p-4 border-t border-[var(--color-border)] mt-auto">
-                                <a
-                                    href="/perfil"
-                                    class="flex items-center gap-3 group hover:bg-gray-200 p-2 -mx-2 rounded-[var(--radius-sm)] transition-colors relative"
-                                >
-                                    <div class="w-10 h-10 bg-[var(--color-border)] rounded-none overflow-hidden flex-shrink-0 border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] group-hover:shadow-[0px_0px_0px_0px_var(--color-primary)] group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-all">
-                                        {Astro.locals.user.avatarUrl ? (
-                                            <img
-                                                src={
-                                                    Astro.locals.user.avatarUrl
-                                                }
-                                                alt="Avatar"
-                                                class="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div class="w-full h-full bg-gray-400 flex items-center justify-center text-sm font-black text-white uppercase relative">
-                                                {(
-                                                    Astro.locals.user.name ||
-                                                    "U"
-                                                ).charAt(0)}
-                                                {(
-                                                    Astro.locals.user
-                                                        .lastName || "S"
-                                                ).charAt(0)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {isBirthday && (
-                                        <div
-                                            class="absolute -top-3 -left-1 text-2xl drop-shadow-md z-10 animate-bounce"
-                                            title="¡Feliz Cumpleaños!"
-                                        >
-                                            🎩
-                                        </div>
-                                    )}
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-black text-[var(--color-foreground)] uppercase tracking-tight truncate">
-                                            {Astro.locals.user.name}{" "}
-                                            {Astro.locals.user.lastName}
-                                        </p>
-                                        <p class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest truncate">
-                                            Ver Mi Perfil
-                                        </p>
-                                    </div>
-                                </a>
-                            </div>
-                        )
-                    }
+                    <a href="/" class="block w-full" aria-label="Inicio">
+                        <img
+                            src="/logo.svg"
+                            alt="Plataforma Militante Socialista"
+                            class="w-full h-auto object-contain"
+                        />
+                    </a>
                 </div>
 
-                <!-- Main Content Area -->
-                <main
-                    class="flex-1 flex flex-col min-w-0 bg-[var(--color-background)] h-screen overflow-hidden"
-                >
-                    <!-- Topbar -->
-                    <header
-                        class="h-16 border-b border-[var(--color-border)] bg-[var(--color-background)] flex items-center justify-between px-4 md:px-8 shrink-0 z-30"
-                    >
-                        <div class="flex-1 flex items-center gap-4">
-                            <!-- Hamburger Menu (Mobile) -->
-                            <button
-                                class="p-2 bg-[var(--color-foreground)] text-white hover:bg-[var(--color-primary)] transition-colors border border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_var(--color-primary)]"
-                                onclick="toggleSidebar()"
-                            >
-                                <svg
-                                    class="w-5 h-5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    ><path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M4 6h16M4 12h16M4 18h16"></path></svg
-                                >
-                            </button>
+                <nav class="flex-1 overflow-y-auto py-4">
+                    <ul class="space-y-1 px-3">
+                        {
+                            navItems.map((item) => {
+                                const active = isActive(item.href);
+                                return (
+                                    <li class="relative">
+                                        <a
+                                            href={item.href}
+                                            class={`flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] font-medium text-sm transition-colors relative z-10 ${active ? "text-white" : "text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-border)]"}`}
+                                        >
+                                            <Fragment set:html={item.icon} />
+                                            {item.name}
+                                        </a>
+                                        {active && (
+                                            <div
+                                                transition:name="nav-active-bg"
+                                                class="absolute inset-0 bg-[var(--color-foreground)] rounded-[var(--radius-sm)] z-0 shadow-sm border border-[var(--color-foreground)]"
+                                            />
+                                        )}
+                                    </li>
+                                );
+                            })
+                        }
+                    </ul>
+                </nav>
 
-                            <!-- Search Bar (Command Palette trigger) -->
-                            <button
-                                class="hidden md:flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-secondary)] border border-[var(--color-border)] px-3 py-1.5 rounded-[var(--radius-sm)] hover:border-[var(--color-foreground)] transition-colors w-64"
-                            >
-                                <svg
-                                    class="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    ><path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                                    ></path></svg
-                                >
-                                Buscar... <span
-                                    class="ml-auto text-xs opacity-50">⌘K</span
-                                >
-                            </button>
-                        </div>
-
-                        <div class="flex items-center gap-4">
+                <!-- Perfil Inferior -->
+                {
+                    Astro.locals.user && (
+                        <div class="p-4 border-t border-[var(--color-border)] mt-auto">
                             <a
-                                href="/notificaciones"
-                                class="p-2 text-[var(--color-foreground)] hover:bg-[var(--color-secondary)] rounded-[var(--radius-sm)] relative block transition-colors"
+                                href="/perfil"
+                                class="flex items-center gap-3 group hover:bg-gray-200 p-2 -mx-2 rounded-[var(--radius-sm)] transition-colors relative"
                             >
-                                <svg
-                                    class="w-5 h-5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    ><path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                                    ></path></svg
-                                >
-                                {
-                                    unreadCount > 0 && (
-                                        <span class="absolute top-0 right-0 w-4 h-4 bg-[var(--color-primary)] text-white text-[10px] font-bold flex items-center justify-center rounded-full">
-                                            {unreadCount > 9
-                                                ? "9+"
-                                                : unreadCount}
-                                        </span>
-                                    )
-                                }
+                                <div class="w-10 h-10 bg-[var(--color-border)] rounded-none overflow-hidden flex-shrink-0 border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] group-hover:shadow-[0px_0px_0px_0px_var(--color-primary)] group-hover:translate-x-0.5 group-hover:translate-y-0.5 transition-all">
+                                    {Astro.locals.user.avatarUrl ? (
+                                        <img
+                                            src={Astro.locals.user.avatarUrl}
+                                            alt="Avatar"
+                                            class="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div class="w-full h-full bg-gray-400 flex items-center justify-center text-sm font-black text-white uppercase relative">
+                                            {(
+                                                Astro.locals.user.name || "U"
+                                            ).charAt(0)}
+                                            {(
+                                                Astro.locals.user.lastName ||
+                                                "S"
+                                            ).charAt(0)}
+                                        </div>
+                                    )}
+                                </div>
+                                {isBirthday && (
+                                    <div
+                                        class="absolute -top-3 -left-1 text-2xl drop-shadow-md z-10 animate-bounce"
+                                        title="¡Feliz Cumpleaños!"
+                                    >
+                                        🎩
+                                    </div>
+                                )}
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-black text-[var(--color-foreground)] uppercase tracking-tight truncate">
+                                        {Astro.locals.user.name}{" "}
+                                        {Astro.locals.user.lastName}
+                                    </p>
+                                    <p class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest truncate">
+                                        Ver Mi Perfil
+                                    </p>
+                                </div>
                             </a>
                         </div>
-                    </header>
-
-                    <!-- Page Content Slot -->
-                    <div
-                        class="flex-1 p-4 md:p-8 overflow-y-auto relative w-full"
-                        transition:animate="fade"
-                    >
-                        <slot />
-                    </div>
-                </main>
+                    )
+                }
             </aside>
+
+            <!-- Main Content Area -->
+            <main
+                class="flex-1 flex flex-col min-w-0 bg-[var(--color-background)] h-screen overflow-hidden"
+            >
+                <!-- Topbar -->
+                <header
+                    class="h-16 border-b border-[var(--color-border)] bg-[var(--color-background)] flex items-center justify-between px-4 md:px-8 shrink-0 z-30"
+                >
+                    <div class="flex-1 flex items-center gap-4">
+                        <!-- Hamburger Menu (Mobile) -->
+                        <button
+                            class="p-2 bg-[var(--color-foreground)] text-white hover:bg-[var(--color-primary)] transition-colors border border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_var(--color-primary)]"
+                            onclick="toggleSidebar()"
+                        >
+                            <svg
+                                class="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                ><path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M4 6h16M4 12h16M4 18h16"></path></svg
+                            >
+                        </button>
+
+                        <!-- Search Bar (Command Palette trigger) -->
+                        <button
+                            class="hidden md:flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-secondary)] border border-[var(--color-border)] px-3 py-1.5 rounded-[var(--radius-sm)] hover:border-[var(--color-foreground)] transition-colors w-64"
+                        >
+                            <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                ><path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                ></path></svg
+                            >
+                            Buscar... <span class="ml-auto text-xs opacity-50"
+                                >⌘K</span
+                            >
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <a
+                            href="/notificaciones"
+                            class="p-2 text-[var(--color-foreground)] hover:bg-[var(--color-secondary)] rounded-[var(--radius-sm)] relative block transition-colors"
+                        >
+                            <svg
+                                class="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                ><path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                                ></path></svg
+                            >
+                            {
+                                unreadCount > 0 && (
+                                    <span class="absolute top-0 right-0 w-4 h-4 bg-[var(--color-primary)] text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                                        {unreadCount > 9 ? "9+" : unreadCount}
+                                    </span>
+                                )
+                            }
+                        </a>
+                    </div>
+                </header>
+
+                <!-- Page Content Slot -->
+                <div
+                    class="flex-1 p-4 md:p-8 overflow-y-auto relative w-full"
+                    transition:animate="fade"
+                >
+                    <slot />
+                </div>
+            </main>
         </div><script is:inline>
             function toggleSidebar() {
                 const sidebar = document.getElementById("sidebar");
