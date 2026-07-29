@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { userActivityTable, appointmentTable, userTable } from '../db/schema';
+import { userActivityTable, appointmentTable, userTable, positionTypeTable } from '../db/schema';
 import { eq, inArray, desc } from 'drizzle-orm';
 
 /**
@@ -46,8 +46,13 @@ export async function getUserActivityFeed(targetUserId: string, viewerId: string
   if (!viewer) return [];
 
   // Obtener a qué organizaciones pertenece activamente el visor
-  const viewerAppointments = await db.select()
+  const viewerAppointments = await db.select({
+      organizationId: appointmentTable.organizationId,
+      status: appointmentTable.status,
+      baseClearance: positionTypeTable.baseClearance
+    })
     .from(appointmentTable)
+    .innerJoin(positionTypeTable, eq(appointmentTable.positionTypeId, positionTypeTable.id))
     .where(eq(appointmentTable.userId, viewerId))
     .all();
     
@@ -57,7 +62,12 @@ export async function getUserActivityFeed(targetUserId: string, viewerId: string
       .map(a => a.organizationId)
   );
 
-  const viewerClearance = viewer.baseClearance || 1; // 1=publico, 2=interno, etc.
+  let viewerClearance = 1; // Default
+  viewerAppointments.filter(a => a.status === 'activo').forEach(a => {
+    if (a.baseClearance > viewerClearance) {
+      viewerClearance = a.baseClearance;
+    }
+  });
   const clearanceMap: Record<string, number> = {
     'publico': 1,
     'interno': 2,

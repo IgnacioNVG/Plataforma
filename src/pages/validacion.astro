@@ -1,7 +1,7 @@
 ---
 import AuthLayout from '../layouts/AuthLayout.astro';
 import { cleanRut } from '../lib/rut';
-import { padronProvisorioTable, userTable } from '../db/schema';
+import { padronTable, userTable } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
@@ -32,7 +32,7 @@ if (Astro.request.method === 'POST') {
       error = "Este RUT ya tiene una cuenta activa. Por favor, inicia sesión.";
     } else {
       // 2. Check Padron
-      const padronRecord = await db.select().from(padronProvisorioTable).where(eq(padronProvisorioTable.rut, currentRut)).get();
+      const padronRecord = await db.select().from(padronTable).where(eq(padronTable.rutHash, rutHash)).get();
       if (!padronRecord) {
         error = "No te encuentras en el Padrón Oficial. Si crees que es un error, contacta al Tribunal Supremo.";
       } else {
@@ -49,7 +49,7 @@ if (Astro.request.method === 'POST') {
     const rutHash = crypto.createHash('sha256').update(currentRut + pepper).digest('hex');
 
     // Double check padron
-    const padronRecord = await db.select().from(padronProvisorioTable).where(eq(padronProvisorioTable.rut, currentRut)).get();
+    const padronRecord = await db.select().from(padronTable).where(eq(padronTable.rutHash, rutHash)).get();
     if (padronRecord) {
       try {
         const userId = crypto.randomUUID();
@@ -58,10 +58,8 @@ if (Astro.request.method === 'POST') {
         await db.insert(userTable).values({
           id: userId,
           rutHash: rutHash,
-          name: padronRecord.name,
-          lastName: padronRecord.lastName,
-          birthDate: padronRecord.birthDate,
-          joinDate: padronRecord.joinDate,
+          name: padronRecord.name || 'Sin Nombre',
+          lastName: padronRecord.lastName || 'Sin Apellido',
           passwordHash: passwordHash,
           isActive: true,
           lastLoginAt: new Date(),
@@ -156,7 +154,7 @@ if (Astro.request.method === 'POST') {
         </div>
 
         <div class="mb-6 border-l-4 border-[var(--color-foreground)] bg-[var(--color-secondary)] p-4 text-sm font-bold text-[var(--color-muted-foreground)]">
-          Hola <strong>{padronData?.name} {padronData?.lastName}</strong>. Crea una contraseña segura para tu cuenta. Podrás completar tu perfil (correo, biografía) más adelante dentro de la plataforma.
+          Hola <strong>{padronData?.name ? `${padronData?.name} ${padronData?.lastName}` : 'Militante'}</strong>. Crea una contraseña segura para tu cuenta. Podrás completar tu perfil (correo, biografía) más adelante dentro de la plataforma.
         </div>
 
         <div class="space-y-2">

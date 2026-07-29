@@ -10,10 +10,10 @@ if (!canManageOrg) {
 }
 
 import { db } from '../../db';
-import { padronProvisorioTable } from '../../db/schema';
+import { padronTable } from '../../db/schema';
 
 // Cargar Padrón de la DB
-const padronDb = await db.select().from(padronProvisorioTable).all();
+const padronDb = await db.select().from(padronTable).all();
 
 ---
 
@@ -83,11 +83,9 @@ const padronDb = await db.select().from(padronProvisorioTable).all();
       <table class="w-full text-left border-collapse">
         <thead>
           <tr class="bg-[var(--color-foreground)] text-[var(--color-background)] border-b-2 border-[var(--color-foreground)]">
-            <th class="p-4 text-xs font-black uppercase tracking-widest">RUT</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest">Nombre Completo</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest">Región / Comuna</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest">Rol</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest text-center">Estado</th>
+            <th class="p-4 text-xs font-black uppercase tracking-widest">Hash / ID</th>
+            <th class="p-4 text-xs font-black uppercase tracking-widest">Nº Ficha</th>
+            <th class="p-4 text-xs font-black uppercase tracking-widest">Nombre (Ocultable)</th>
             <th class="p-4 text-xs font-black uppercase tracking-widest text-right">Acciones</th>
           </tr>
         </thead>
@@ -95,36 +93,17 @@ const padronDb = await db.select().from(padronProvisorioTable).all();
           {padronDb.map(militante => (
             <tr class="hover:bg-[var(--color-secondary)] transition-colors group">
               <td class="p-4">
-                <span class="font-mono text-sm font-bold bg-[var(--color-muted)] px-2 py-1 border border-[var(--color-border)] group-hover:border-[var(--color-primary)] transition-colors">
-                  {militante.rut}
+                <span class="font-mono text-sm font-bold bg-[var(--color-muted)] px-2 py-1 border border-[var(--color-border)] group-hover:border-[var(--color-primary)] transition-colors truncate max-w-[150px] inline-block" title={militante.rutHash}>
+                  {militante.rutHash.substring(0, 12)}...
                 </span>
               </td>
               <td class="p-4">
-                <div class="font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">{militante.name} {militante.lastName}</div>
-                <div class="text-xs text-[var(--color-muted-foreground)]">Ingreso: {militante.joinDate}</div>
+                <div class="font-bold text-[var(--color-foreground)]">{militante.ficha || 'Sin asignar'}</div>
               </td>
               <td class="p-4">
-                <div class="font-bold text-sm">{militante.region}</div>
-                <div class="text-xs text-[var(--color-muted-foreground)] uppercase tracking-wider">{militante.comuna}</div>
-              </td>
-              <td class="p-4">
-                <span class="text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">
-                  {militante.role}
-                </span>
-              </td>
-              <td class="p-4 text-center">
-                <span class={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-black uppercase tracking-widest border-2 ${
-                  militante.status === 'Activo' 
-                    ? 'border-green-600 text-green-700 bg-green-50' 
-                    : militante.status === 'Suspendido'
-                    ? 'border-red-600 text-red-700 bg-red-50'
-                    : 'border-yellow-600 text-yellow-700 bg-yellow-50'
-                }`}>
-                  <span class={`w-2 h-2 rounded-full ${
-                    militante.status === 'Activo' ? 'bg-green-600' : militante.status === 'Suspendido' ? 'bg-red-600' : 'bg-yellow-600'
-                  }`}></span>
-                  {militante.status}
-                </span>
+                <div class="font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">
+                  {militante.name ? `${militante.name} ${militante.lastName}` : 'Datos Ocultos'}
+                </div>
               </td>
               <td class="p-4 text-right">
                 <button class="p-2 border-2 border-transparent hover:border-[var(--color-foreground)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors" title="Ver Perfil Completo">

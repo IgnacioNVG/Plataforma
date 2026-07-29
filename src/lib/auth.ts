@@ -33,7 +33,12 @@ export function initializeLucia(db: any) {
         lastName: attributes.last_name,
         avatarUrl: attributes.avatar_url,
         passwordHash: attributes.password_hash,
-        isActive: Boolean(attributes.is_active)
+        isActive: Boolean(attributes.is_active),
+        biography: attributes.biography,
+        phone: attributes.phone,
+        pronouns: attributes.pronouns,
+        currentStreak: attributes.current_streak,
+        longestStreak: attributes.longest_streak
       };
     }
   });
@@ -54,4 +59,10 @@ interface DatabaseUserAttributes {
   password_hash: string;
   rut_hash: string;
   is_active: number | boolean;
+  biography: string | null;
+  phone: string | null;
+  pronouns: string | null;
+  current_streak: number;
+  longest_streak: number;
 }
+

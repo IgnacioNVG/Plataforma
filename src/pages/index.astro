@@ -13,12 +13,6 @@ const upcomingEvents = await db.select().from(eventTable)
   .orderBy(asc(eventTable.startDate))
   .limit(4);
 
-import { padronProvisorioTable } from '../db/schema';
-import { like } from 'drizzle-orm';
-const currentMonthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-const birthdayUsers = await db.select().from(padronProvisorioTable)
-  .where(like(padronProvisorioTable.birthDate, `%-${currentMonthDay}`))
-  .limit(5);
 ---
 
 <AppLayout title="Inicio">
@@ -112,34 +106,7 @@ const birthdayUsers = await db.select().from(padronProvisorioTable)
     <!-- Columna Secundaria (1/3) -->
     <div class="space-y-8">
       
-      <!-- Widget de Cumpleaños -->
-      {birthdayUsers.length > 0 && (
-        <div class="border-2 border-yellow-400 bg-yellow-50 p-6 rounded-[var(--radius-sm)] shadow-[4px_4px_0px_0px_rgba(250,204,21,1)] relative overflow-hidden">
-          <div class="absolute -right-4 -top-4 text-6xl opacity-20">🎂</div>
-          <div class="flex items-center gap-3 mb-4 relative z-10">
-            <span class="text-2xl">🎉</span>
-            <h3 class="font-black text-[var(--color-foreground)] uppercase tracking-widest text-sm">¡Cumpleañeros de Hoy!</h3>
-          </div>
-          <ul class="space-y-3 relative z-10">
-            {birthdayUsers.map(u => (
-              <li class="flex items-center gap-3 bg-white p-2 border border-yellow-400 rounded-sm">
-                <div class="w-8 h-8 bg-gray-200 border-2 border-black rounded-none flex-shrink-0 flex items-center justify-center font-bold text-xs uppercase overflow-hidden relative">
-                  <div class="absolute -top-2 -left-1 text-lg z-10 drop-shadow-sm">🎩</div>
-                  {(u as any).avatarUrl ? (
-                    <img src={(u as any).avatarUrl} alt={u.name} class="w-full h-full object-cover" />
-                  ) : (
-                    <span>{(u.name || 'U').charAt(0)}{(u.lastName || 'S').charAt(0)}</span>
-                  )}
-                </div>
-                <div>
-                  <p class="font-bold text-xs uppercase truncate leading-tight">{u.name} {u.lastName}</p>
-                  <p class="text-[9px] text-gray-500 uppercase font-bold truncate">Felicítal{u.name.endsWith('a') ? 'a' : 'o'} hoy</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+
 
       <!-- Agenda -->
       <section class="border border-[var(--color-border)] bg-[var(--color-background)] p-6 rounded-[var(--radius-sm)]">
