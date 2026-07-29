@@ -47,6 +47,9 @@ const isRoot = level === 0;
       
       {canManage && (
         <div class="hidden md:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onclick={`event.preventDefault(); document.getElementById('modal-cargo-${node.id}').showModal()`} class="text-[10px] font-black uppercase tracking-widest bg-blue-600 text-white border border-black px-3 py-1 hover:bg-blue-700">
+            + Proponer Cargo
+          </button>
           <a href={`/admin/directorio/nombramientos?org=${node.id}`} class="text-[10px] font-black uppercase tracking-widest bg-yellow-400 border border-black px-3 py-1 hover:bg-yellow-300">
             + Nombramiento
           </a>
@@ -56,6 +59,45 @@ const isRoot = level === 0;
         </div>
       )}
     </summary>
+
+    <!-- Modal Proponer Cargo (Brutalist HTML5 Dialog) -->
+    <dialog id={`modal-cargo-${node.id}`} class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-0 shadow-[12px_12px_0px_0px_var(--color-primary)] max-w-lg w-full backdrop:bg-black/80">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-6 border-b-4 border-[var(--color-foreground)] pb-4">
+          <h3 class="text-2xl font-black uppercase tracking-tighter">Proponer Cargo</h3>
+          <button onclick={`document.getElementById('modal-cargo-${node.id}').close()`} class="text-3xl font-black text-[var(--color-foreground)] hover:text-[var(--color-primary)] cursor-pointer">&times;</button>
+        </div>
+        <form method="POST" action="/api/solicitudes/cargo" class="space-y-6">
+          <input type="hidden" name="organizationId" value={node.id} />
+          
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Título del Cargo</label>
+            <input type="text" name="proposedTitle" placeholder="Ej: Secretario de Medioambiente" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--color-primary)] transition-colors rounded-none placeholder-gray-400" />
+          </div>
+          
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Área Funcional</label>
+            <select name="proposedFunctionalArea" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--color-primary)] transition-colors rounded-none appearance-none cursor-pointer">
+              <option value="politico">Político</option>
+              <option value="organico">Orgánico</option>
+              <option value="genero">Género</option>
+              <option value="finanzas">Finanzas</option>
+              <option value="representativo">Representativo</option>
+              <option value="general">General</option>
+            </select>
+          </div>
+
+          <div class="pt-4 flex gap-4">
+            <button type="button" onclick={`document.getElementById('modal-cargo-${node.id}').close()`} class="flex-1 bg-[var(--color-secondary)] text-[var(--color-foreground)] font-black uppercase tracking-widest px-6 py-4 border-2 border-[var(--color-foreground)] hover:bg-gray-200 transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+              Cancelar
+            </button>
+            <button type="submit" class="flex-1 bg-[var(--color-primary)] text-white font-black uppercase tracking-widest px-6 py-4 border-2 border-[var(--color-foreground)] hover:bg-[var(--color-foreground)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+              Enviar Solicitud
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
 
     <!-- Contenido del Nodo Expansible -->
     <div class="pt-6 pl-4 md:pl-8 pb-4">

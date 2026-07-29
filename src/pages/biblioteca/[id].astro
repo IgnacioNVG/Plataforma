@@ -1,11 +1,52 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 
-export function getStaticPaths() {
-  return [
-    { params: { id: 'resoluciones-cc-2023' } },
-  ];
+import { db } from '../../db';
+import { documentTable, organizationTable } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+import { authorize } from '../../lib/authz';
+
+const { id } = Astro.params;
+const user = Astro.locals.user;
+
+if (!user || !id) {
+  return Astro.redirect('/');
 }
+
+const doc = await db.select().from(documentTable).where(eq(documentTable.id, id)).get();
+
+if (!doc) {
+  return new Response('Documento no encontrado', { status: 404 });
+}
+
+const org = await db.select().from(organizationTable).where(eq(organizationTable.id, doc.organizationId)).get();
+
+const canView = await authorize(
+  user.id, 
+  'read', 
+  'document', 
+  doc.classification as any, 
+  doc.organizationId, 
+  doc.id
+);
+
+if (!canView) {
+  return Astro.redirect(`/biblioteca/restringido?id=${doc.id}`);
+}
+
+const fileUrl = doc.fileUrl; // e.g. /api/storage/docs/uuid.docx
+const hasFile = fileUrl && fileUrl.trim().length > 0;
+const isPdf = hasFile && fileUrl.toLowerCase().endsWith('.pdf');
+const ext = hasFile ? (fileUrl.split('.').pop()?.toUpperCase() || 'DOCUMENTO') : '';
+
+// Youtube Parser
+function getYoutubeEmbedUrl(url?: string | null) {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+}
+const embedUrl = getYoutubeEmbedUrl(doc.youtubeUrl);
 ---
 
 <AppLayout title="Documento | Biblioteca">
@@ -42,45 +83,75 @@ export function getStaticPaths() {
               <dd class="font-bold text-base mt-1">15 Octubre, 2023</dd>
             </div>
             <div>
-              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Formato</dt>
-              <dd class="font-bold text-base mt-1">PDF (2.4 MB)</dd>
-            </div>
-            <div>
-              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Etiquetas</dt>
-              <dd class="mt-2 flex flex-wrap gap-2">
-                <span class="bg-[var(--color-foreground)] text-[var(--color-background)] px-2 py-1 text-xs font-bold uppercase tracking-widest">Orgánica</span>
-                <span class="bg-[var(--color-foreground)] text-[var(--color-background)] px-2 py-1 text-xs font-bold uppercase tracking-widest">Programa</span>
-              </dd>
+              <dt class="font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest text-[10px]">Clasificación</dt>
+              <dd class="font-bold text-base mt-1 text-[var(--color-primary)]">Nivel {doc.clearanceLevel}</dd>
             </div>
           </dl>
         </div>
-
-        <button class="w-full bg-[var(--color-primary)] text-white font-bold py-4 uppercase tracking-widest hover:bg-red-800 transition-colors flex items-center justify-center gap-2 border-2 border-[var(--color-primary)] hover:border-red-800">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-          Descargar Archivo
-        </button>
       </div>
 
-      <!-- Descripción -->
-      <div class="md:col-span-2">
-        <h1 class="text-5xl font-bold text-[var(--color-foreground)] mb-8 leading-tight tracking-tight uppercase">Resoluciones del Comité Central respecto a los nuevos desafíos formativos</h1>
+      <!-- Visor y Acciones -->
+      <div class="md:col-span-2 space-y-8">
         
-        <div class="prose prose-lg max-w-none text-[var(--color-foreground)] border-t-4 border-[var(--color-foreground)] pt-8">
-          <p class="text-xl font-bold mb-6 leading-relaxed">
-            Documento oficial emanado del Comité Central realizado el 12 de octubre de 2023, donde se establecen los lineamientos para la escuela de formación política de la Juventud.
-          </p>
-          <p class="mb-4">
-            El presente texto recoge las síntesis de las distintas comisiones de trabajo y aprueba el nuevo currículo de formación básica para militantes ingresados durante el último año. Se enfatiza la necesidad de volver a los estudios sobre economía política y la historia del movimiento sindical chileno.
-          </p>
-          
-          <h3 class="font-bold text-2xl mt-8 mb-4 uppercase tracking-tight">Contenidos Principales</h3>
-          <ul class="list-disc pl-6 space-y-2 font-medium">
-            <li>Evaluación del periodo político nacional y rol de la juventud.</li>
-            <li>Reestructuración de la secretaría de educación política.</li>
-            <li>Cronograma oficial de escuelas de verano 2024.</li>
-            <li>Protocolos de seguridad e higiene para encuentros masivos.</li>
-          </ul>
+        <div class="flex items-center justify-between border-b-4 border-[var(--color-foreground)] pb-4">
+          <h2 class="text-2xl font-black uppercase tracking-tight">{doc.title}</h2>
+          {hasFile && (
+            <div class="flex gap-2">
+              <a href={fileUrl} target="_blank" rel="noopener noreferrer" class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 text-xs font-black uppercase tracking-widest border border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors inline-flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                {isPdf ? 'Nueva Pestaña' : 'Descargar Archivo'}
+              </a>
+            </div>
+          )}
         </div>
+
+        {embedUrl ? (
+          <div class="space-y-6">
+            <div class="w-full aspect-video bg-black border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)] relative">
+              <iframe 
+                src={embedUrl}
+                class="w-full h-full absolute inset-0"
+                title={`Reproductor Multimedia: ${doc.title}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+              ></iframe>
+            </div>
+            
+            {hasFile && (
+              <div class="flex items-center justify-between p-6 bg-[var(--color-secondary)] border-4 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+                <div>
+                  <h4 class="font-black uppercase tracking-tighter text-lg mb-1">Material Adjunto</h4>
+                  <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">Documento en formato {ext}</p>
+                </div>
+                <a href={fileUrl} download class="bg-[var(--color-foreground)] text-white font-black px-6 py-3 uppercase tracking-widest hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-none flex items-center gap-2 text-sm">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  Descargar
+                </a>
+              </div>
+            )}
+          </div>
+        ) : isPdf ? (
+          <div class="w-full aspect-[4/5] md:aspect-video bg-[var(--color-background)] border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)] relative">
+            <iframe 
+              src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+              class="w-full h-full absolute inset-0"
+              title={`Visor PDF: ${doc.title}`}
+            ></iframe>
+          </div>
+        ) : (
+          <div class="w-full py-24 bg-[var(--color-background)] border-4 border-dashed border-[var(--color-foreground)] flex flex-col items-center justify-center text-center">
+            <div class="w-24 h-24 border-4 border-[var(--color-foreground)] bg-[var(--color-secondary)] flex items-center justify-center text-2xl font-black mb-6 shadow-[4px_4px_0px_0px_var(--color-primary)]">
+              {ext}
+            </div>
+            <h3 class="text-2xl font-black uppercase tracking-tighter mb-2">Archivo de Office</h3>
+            <p class="text-[var(--color-muted-foreground)] font-bold mb-8 max-w-sm">Los navegadores web no pueden renderizar de forma segura este tipo de archivo. Descárgalo a tu equipo para visualizarlo.</p>
+            <a href={fileUrl} download class="bg-[var(--color-foreground)] text-white font-black px-12 py-4 uppercase tracking-widest hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-none flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Descargar {ext}
+            </a>
+          </div>
+        )}
+        
       </div>
 
     </div>

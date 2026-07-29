@@ -11,3 +11,7 @@ binding = "DB"
 database_name = "plataforma"
 database_id = "9f13bd3f-ee85-4001-81d7-ac9cd90ef241"
 migrations_dir = "drizzle"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "plataforma-storage"

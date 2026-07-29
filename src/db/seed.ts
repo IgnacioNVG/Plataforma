@@ -16,44 +16,103 @@ async function seed() {
 
   // 1. Crear Órganos Base
   const orgNacionalId = crypto.randomUUID();
+  const orgComisionPolId = crypto.randomUUID();
+  const orgComiteCentralId = crypto.randomUUID();
+  const orgDnsId = crypto.randomUUID();
+  const orgDnsupId = crypto.randomUUID();
   const orgRMId = crypto.randomUUID();
+  const orgComunalStgoId = crypto.randomUUID();
+  const orgBusUchileId = crypto.randomUUID();
+  const orgNucleoJGMId = crypto.randomUUID();
 
   await db.insert(organizationTable).values([
     {
       id: orgNacionalId,
       name: 'Dirección Nacional',
       type: 'nacional',
-      description: 'Órgano ejecutivo máximo del partido',
+      description: 'Órgano ejecutivo máximo de la juventud',
       territoryScope: 'Nacional'
+    },
+    {
+      id: orgComisionPolId,
+      name: 'Comisión Política',
+      type: 'comision_politica',
+      parentId: orgNacionalId,
+      description: 'Órgano deliberativo político',
+    },
+    {
+      id: orgComiteCentralId,
+      name: 'Comité Central',
+      type: 'comite_central',
+      parentId: orgNacionalId,
+      description: 'Máximo órgano deliberativo entre congresos',
+    },
+    {
+      id: orgDnsId,
+      name: 'Dirección Nacional Secundaria',
+      type: 'dns',
+      parentId: orgNacionalId,
+    },
+    {
+      id: orgDnsupId,
+      name: 'Dirección Nacional de Ed. Superior',
+      type: 'dnsup',
+      parentId: orgNacionalId,
     },
     {
       id: orgRMId,
       name: 'Dirección Regional Metropolitana',
       type: 'regional',
       parentId: orgNacionalId,
-      description: 'Dirección de la RM',
       territoryScope: 'RM'
-    }
-  ]);
-  console.log('✅ Órganos creados');
-
-  // 2. Crear Cargos Nominales
-  const posAdminId = crypto.randomUUID();
-  const posPresidenteId = crypto.randomUUID();
-
-  await db.insert(positionTypeTable).values([
-    {
-      id: posAdminId,
-      title: 'Administrador Técnico',
-      baseClearance: 4 // Confidencial, para poder ver errores en el sistema
     },
     {
-      id: posPresidenteId,
-      title: 'Presidente',
-      baseClearance: 4 
+      id: orgComunalStgoId,
+      name: 'Dirección Comunal Santiago',
+      type: 'comunal',
+      parentId: orgRMId,
+      territoryScope: 'Santiago'
+    },
+    {
+      id: orgBusUchileId,
+      name: 'BUS Universidad de Chile',
+      type: 'brigada',
+      parentId: orgRMId,
+      territoryScope: 'U. de Chile'
+    },
+    {
+      id: orgNucleoJGMId,
+      name: 'Núcleo JGM',
+      type: 'nucleo',
+      parentId: orgBusUchileId,
+      territoryScope: 'Campus JGM'
     }
   ]);
-  console.log('✅ Cargos Nominales creados');
+  console.log('✅ Estructura Orgánica creada');
+
+  // 2. Crear Cargos Funcionales Base
+  const roles = {
+    admin: crypto.randomUUID(),
+    presidente: crypto.randomUUID(),
+    secGeneral: crypto.randomUUID(),
+    secPolitico: crypto.randomUUID(),
+    secOrganico: crypto.randomUUID(),
+    secGenero: crypto.randomUUID(),
+    integranteCC: crypto.randomUUID(),
+    militante: crypto.randomUUID(),
+  };
+
+  await db.insert(positionTypeTable).values([
+    { id: roles.admin, title: 'Administrador Técnico', functionalArea: 'general', baseClearance: 4 },
+    { id: roles.presidente, title: 'Presidente', functionalArea: 'presidencia', baseClearance: 4 },
+    { id: roles.secGeneral, title: 'Secretario General', functionalArea: 'general', baseClearance: 4 },
+    { id: roles.secPolitico, title: 'Secretario Político', functionalArea: 'politico', baseClearance: 3 },
+    { id: roles.secOrganico, title: 'Secretario Orgánico', functionalArea: 'organico', baseClearance: 3 },
+    { id: roles.secGenero, title: 'Secretaria de Género', functionalArea: 'genero', baseClearance: 3 },
+    { id: roles.integranteCC, title: 'Integrante Comité Central', functionalArea: 'representativo', baseClearance: 3 },
+    { id: roles.militante, title: 'Militante Base', functionalArea: 'militante', baseClearance: 1 },
+  ]);
+  console.log('✅ Cargos Funcionales creados');
 
   // 3. Rescatar al usuario
   const email = 'navasgranizo.ignacio@gmail.com';
@@ -83,7 +142,7 @@ async function seed() {
     await db.insert(appointmentTable).values({
       id: crypto.randomUUID(),
       userId: user.id,
-      positionTypeId: posAdminId, // Admin Técnico, NO político
+      positionTypeId: roles.admin, // Admin Técnico con poder total
       organizationId: orgNacionalId,
       startDate: new Date(),
       endDate: nextYear,
@@ -93,13 +152,13 @@ async function seed() {
     console.log(`✅ Nombramiento técnico provisorio inyectado para ${user.email}`);
   }
 
-  // 5. Crear Políticas Base
+  // 5. Crear Políticas Base (Simples, la lógica pesada va en authorize)
   await db.insert(policyTable).values([
     {
       id: crypto.randomUUID(),
       resourceType: 'all',
       action: 'manage',
-      condition: 'global',
+      condition: 'global', // Admin global fallback
       organizationId: orgNacionalId
     }
   ]);

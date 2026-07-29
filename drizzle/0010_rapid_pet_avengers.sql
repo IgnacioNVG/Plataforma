@@ -1,0 +1,1 @@
+ALTER TABLE `padron_provisorio` ADD `birth_date` text;

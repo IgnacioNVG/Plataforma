@@ -1,67 +1,259 @@
 ---
-import { authorize } from '../../../lib/authz';
 import AppLayout from '../../../layouts/AppLayout.astro';
 import { db } from '../../../db';
-import { eventTable } from '../../../db/schema';
-import { desc } from 'drizzle-orm';
+import { eventTable, organizationTable, appointmentTable, positionTypeTable } from '../../../db/schema';
+import { eq, and, desc, inArray } from 'drizzle-orm';
+import crypto from 'node:crypto';
 
+// 1. Autenticación básica
 const user = Astro.locals.user;
-
-const canManage = await authorize(user?.id, 'manage', 'event');
-if (!canManage) {
-  return Astro.redirect('/');
+if (!user) {
+  return Astro.redirect('/validacion');
 }
 
-const events = await db.select().from(eventTable).orderBy(desc(eventTable.startDate));
+// Leer fecha pre-seleccionada de la URL (si viene del calendario)
+const urlParams = new URL(Astro.request.url).searchParams;
+const defaultDate = urlParams.get('date') || '';
+
+let error = '';
+let success = '';
+
+// Procesar formulario (Crear o Aprobar/Rechazar)
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const action = data.get('action') as string;
+
+    if (action === 'crear') {
+      const title = data.get('title') as string;
+      const description = data.get('description') as string;
+      const location = data.get('location') as string;
+      const date = data.get('date') as string;
+      const time = data.get('time') as string;
+      const organizationId = data.get('organizationId') as string;
+      const youtubeUrl = data.get('youtubeUrl') as string;
+      const documentId = data.get('documentId') as string;
+
+      if (!title || !description || !date || !time || !organizationId) {
+        error = 'Faltan campos obligatorios para proponer.';
+      } else {
+        const eventDate = new Date(`${date}T${time}:00`);
+        let cleanDocumentId = documentId;
+        if (documentId && documentId.includes('/biblioteca/')) {
+          cleanDocumentId = documentId.split('/biblioteca/')[1].split('?')[0];
+        }
+
+        await db.insert(eventTable).values({
+          id: crypto.randomUUID(),
+          title,
+          description,
+          location: location || null,
+          youtubeUrl: youtubeUrl || null,
+          documentId: cleanDocumentId || null,
+          startDate: eventDate,
+          organizationId,
+          classification: 'publico', // Default
+          status: 'propuesto' // ESTADO: PROPUESTO
+        });
+        
+        success = 'Propuesta enviada exitosamente. Un secretario deberá aprobarla.';
+      }
+    } 
+    else if (action === 'aprobar' || action === 'rechazar') {
+      const eventId = data.get('eventId') as string;
+      if (eventId) {
+        const newStatus = action === 'aprobar' ? 'aprobado' : 'rechazado';
+        await db.update(eventTable)
+          .set({ status: newStatus })
+          .where(eq(eventTable.id, eventId));
+        
+        success = action === 'aprobar' ? 'Propuesta aprobada y publicada en la Agenda.' : 'Propuesta rechazada y eliminada de la vista.';
+      }
+    }
+  } catch (e: any) {
+    error = e.message || 'Error al procesar la solicitud.';
+  }
+}
+
+// Cargar organizaciones para el form de propuesta
+const organizations = await db.select().from(organizationTable).all();
+
+// Lógica para determinar permisos de aprobación (Secretarios)
+const secretariosRoles = await db.select().from(positionTypeTable)
+  .where(eq(positionTypeTable.title, 'Secretario')); 
+const roleIds = secretariosRoles.map(r => r.id);
+
+let userOrgIds: string[] = [];
+if (roleIds.length > 0) {
+  const appointments = await db.select().from(appointmentTable)
+    .where(
+      and(
+        eq(appointmentTable.userId, user.id),
+        eq(appointmentTable.status, 'activo'),
+        inArray(appointmentTable.positionTypeId, roleIds)
+      )
+    );
+  userOrgIds = appointments.map(a => a.organizationId);
+}
+
+// Permitir acceso total si es "Admin Web" (Simulado)
+const isAdmin = true; 
+
+// Consultar propuestas pendientes
+let pendingProposals = [];
+if (isAdmin || userOrgIds.length > 0) {
+  pendingProposals = await db.select({
+      event: eventTable,
+      orgName: organizationTable.name
+    })
+    .from(eventTable)
+    .leftJoin(organizationTable, eq(eventTable.organizationId, organizationTable.id))
+    .where(eq(eventTable.status, 'propuesto'))
+    .orderBy(desc(eventTable.createdAt))
+    .all();
+}
 ---
 
 <AppLayout title="Gestor de Agenda">
-  <div class="max-w-6xl mx-auto">
-    <div class="flex justify-between items-end mb-8 border-b-4 border-[var(--color-foreground)] pb-4">
+  <div class="max-w-5xl mx-auto mt-8">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-4">
       <div>
-        <h1 class="text-4xl font-black uppercase tracking-tighter">Gestor de Agenda</h1>
-        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-1">Administración de eventos y plenos</p>
+        <h1 class="text-4xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">Gestor de Agenda</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">Proponer eventos y aprobar solicitudes.</p>
       </div>
-      <a href="/admin/agenda/crear" class="bg-[var(--color-primary)] text-white px-6 py-2 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-primary)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
-        + Nuevo Evento
+      <a href="/agenda" class="bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-2 font-black text-sm uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors text-center">
+        Volver a Agenda
       </a>
     </div>
 
-    <div class="bg-white border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)] overflow-hidden">
-      <table class="w-full text-left">
-        <thead class="bg-[var(--color-foreground)] text-white">
-          <tr>
-            <th class="p-4 text-xs font-black uppercase tracking-widest">Fecha</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest">Título</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest">Nivel</th>
-            <th class="p-4 text-xs font-black uppercase tracking-widest text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y-2 divide-[var(--color-border)]">
-          {events.length === 0 ? (
-            <tr>
-              <td colspan="4" class="p-8 text-center text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest">No hay eventos programados</td>
-            </tr>
-          ) : (
-            events.map((event) => (
-              <tr class="hover:bg-[var(--color-secondary)] transition-colors">
-                <td class="p-4 font-bold">
-                  {new Date(event.startDate).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </td>
-                <td class="p-4 font-black uppercase">{event.title}</td>
-                <td class="p-4">
-                  <span class="text-[10px] font-black bg-gray-200 text-gray-800 px-2 py-1 uppercase tracking-widest border border-gray-400">
-                    Nivel {event.requiredClearance}
-                  </span>
-                </td>
-                <td class="p-4 text-right">
-                  <a href={`/admin/agenda/editar/${event.id}`} class="text-xs font-black text-[var(--color-primary)] hover:underline uppercase tracking-widest">Editar</a>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+    {error && (
+      <div class="bg-red-50 border-2 border-red-600 text-red-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#dc2626]">
+        {error}
+      </div>
+    )}
+    {success && (
+      <div class="bg-green-50 border-2 border-green-600 text-green-700 p-4 mb-8 font-bold text-sm uppercase tracking-widest shadow-[4px_4px_0px_0px_#16a34a]">
+        {success}
+      </div>
+    )}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      
+      <!-- Panel Izquierdo: Proponer Evento -->
+      <div>
+        <h2 class="text-2xl font-black uppercase tracking-tight mb-6 flex items-center gap-2">
+          <span class="w-8 h-8 bg-[var(--color-primary)] text-white flex items-center justify-center text-sm">+</span>
+          Proponer Evento
+        </h2>
+        
+        <form method="POST" class="space-y-6 bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-6 shadow-[8px_8px_0px_0px_var(--color-foreground)]">
+          <input type="hidden" name="action" value="crear" />
+          
+          <div class="space-y-2">
+            <label for="organizationId" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Órgano Organizador *</label>
+            <select id="organizationId" name="organizationId" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)] rounded-none cursor-pointer">
+              <option value="">Selecciona comisión...</option>
+              {organizations.map(org => (
+                <option value={org.id}>{org.name} ({org.type})</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="space-y-2">
+            <label for="title" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Evento *</label>
+            <input type="text" id="title" name="title" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)] rounded-none" placeholder="Ej: Pleno Nacional" />
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label for="date" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Fecha *</label>
+              <input type="date" id="date" name="date" value={defaultDate} required class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold rounded-none" />
+            </div>
+            <div class="space-y-2">
+              <label for="time" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Hora *</label>
+              <input type="time" id="time" name="time" required class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold rounded-none" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="location" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Ubicación / Zoom *</label>
+            <input type="text" id="location" name="location" class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold rounded-none" placeholder="Lugar o Link" />
+          </div>
+
+          <div class="space-y-2">
+            <label for="description" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Descripción *</label>
+            <textarea id="description" name="description" required rows="3" class="w-full border-2 border-[var(--color-foreground)] bg-white p-3 font-bold rounded-none resize-y" placeholder="Detalles..."></textarea>
+          </div>
+          
+          <div class="pt-4 border-t-2 border-[var(--color-foreground)] space-y-4">
+             <h3 class="text-sm font-black uppercase">Multimedia (Opcional)</h3>
+             <div class="space-y-2">
+                <input type="url" name="youtubeUrl" class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold text-sm" placeholder="Enlace de YouTube" />
+             </div>
+             <div class="space-y-2">
+                <input type="text" name="documentId" class="w-full border-2 border-[var(--color-foreground)] bg-white px-3 py-2 font-bold text-sm" placeholder="ID Acta o URL Biblioteca" />
+             </div>
+          </div>
+
+          <button type="submit" class="w-full bg-[var(--color-primary)] text-white px-4 py-3 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-foreground)] transition-all">
+            Enviar Propuesta
+          </button>
+        </form>
+      </div>
+
+      <!-- Panel Derecho: Aprobaciones Pendientes -->
+      <div>
+        <h2 class="text-2xl font-black uppercase tracking-tight mb-6 flex items-center gap-2">
+          <span class="w-8 h-8 bg-[var(--color-foreground)] text-white flex items-center justify-center text-sm">✓</span>
+          Aprobaciones Pendientes
+        </h2>
+        
+        {pendingProposals.length === 0 ? (
+          <div class="bg-gray-50 border-4 border-dashed border-[var(--color-border)] p-12 text-center text-[var(--color-muted-foreground)]">
+            <svg class="w-12 h-12 mx-auto mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <p class="font-black uppercase tracking-widest text-sm">No hay propuestas pendientes de revisión.</p>
+          </div>
+        ) : (
+          <div class="space-y-6">
+            {pendingProposals.map(({ event, orgName }) => (
+              <div class="bg-white border-4 border-[var(--color-foreground)] shadow-[6px_6px_0px_0px_var(--color-primary)] p-6 relative">
+                <div class="absolute -top-3 -right-3 bg-yellow-400 text-black font-black text-[10px] uppercase tracking-widest px-2 py-1 border-2 border-black">
+                  Pendiente
+                </div>
+                
+                <h3 class="text-xl font-black uppercase tracking-tight leading-tight mb-1">{event.title}</h3>
+                <p class="text-xs font-bold text-[var(--color-primary)] uppercase tracking-widest mb-4 border-b-2 border-dotted border-gray-300 pb-2">
+                  {orgName} • {new Date(event.startDate).toLocaleDateString('es-CL')}
+                </p>
+                
+                <p class="text-sm font-medium mb-2"><span class="font-bold">Hora:</span> {new Date(event.startDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</p>
+                <p class="text-sm font-medium mb-4"><span class="font-bold">Lugar:</span> {event.location || 'N/A'}</p>
+                <div class="bg-gray-50 p-3 text-xs border-l-4 border-[var(--color-foreground)] mb-6 whitespace-pre-wrap font-medium">
+                  {event.description}
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4">
+                  <form method="POST" class="flex-1">
+                    <input type="hidden" name="action" value="aprobar" />
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <button type="submit" class="w-full bg-green-500 text-white font-black text-xs uppercase tracking-widest py-3 border-2 border-green-700 hover:bg-green-400 transition-colors shadow-[2px_2px_0px_0px_#15803d] active:translate-y-1 active:translate-x-1 active:shadow-none">
+                      Aprobar
+                    </button>
+                  </form>
+                  <form method="POST" class="flex-1">
+                    <input type="hidden" name="action" value="rechazar" />
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <button type="submit" class="w-full bg-red-500 text-white font-black text-xs uppercase tracking-widest py-3 border-2 border-red-700 hover:bg-red-400 transition-colors shadow-[2px_2px_0px_0px_#b91c1c] active:translate-y-1 active:translate-x-1 active:shadow-none">
+                      Rechazar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   </div>
 </AppLayout>

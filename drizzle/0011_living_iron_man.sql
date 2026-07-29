@@ -1,0 +1,1 @@
+ALTER TABLE `document` ADD `clearance_level` integer DEFAULT 1 NOT NULL;

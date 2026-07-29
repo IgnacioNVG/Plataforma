@@ -60,8 +60,13 @@ if (Astro.request.method === 'POST') {
           rutHash: rutHash,
           name: padronRecord.name,
           lastName: padronRecord.lastName,
+          birthDate: padronRecord.birthDate,
+          joinDate: padronRecord.joinDate,
           passwordHash: passwordHash,
-          isActive: true
+          isActive: true,
+          lastLoginAt: new Date(),
+          currentStreak: 1,
+          longestStreak: 1
         });
 
         // Crear sesión automáticamente

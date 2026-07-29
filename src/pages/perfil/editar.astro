@@ -1,8 +1,8 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import { db } from '../../db';
-import { userTable } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { userTable, appointmentTable, organizationTable } from '../../db/schema';
+import { eq, and, isNull } from 'drizzle-orm';
 
 const user = Astro.locals.user;
 if (!user) {
@@ -11,6 +11,22 @@ if (!user) {
 
 // Obtener datos más recientes de la DB
 const [dbUser] = await db.select().from(userTable).where(eq(userTable.id, user.id));
+
+// Obtener datos orgánicos (Comuna Base)
+const userAppointments = await db.select({
+  orgName: organizationTable.name,
+  orgType: organizationTable.type
+}).from(appointmentTable)
+  .innerJoin(organizationTable, eq(appointmentTable.organizationId, organizationTable.id))
+  .where(
+    and(
+      eq(appointmentTable.userId, user.id),
+      eq(appointmentTable.status, 'activo'),
+      isNull(appointmentTable.endDate)
+    )
+  );
+
+const comunalBase = userAppointments.find(a => a.orgType === 'comunal')?.orgName || 'Sin Comunal Base';
 
 let message = '';
 let isError = false;
@@ -23,17 +39,35 @@ if (Astro.request.method === 'POST') {
     const email = formData.get('email') as string;
     const biography = formData.get('biography') as string;
     const phone = formData.get('phone') as string;
+    const pronouns = formData.get('pronouns') as string;
     const avatar = formData.get('avatar');
 
     let newAvatarUrl = dbUser.avatarUrl;
 
-    if (avatar && avatar instanceof File && avatar.size > 0) {
-      try {
-        // Subida de imágenes local deshabilitada temporalmente por compatibilidad con Cloudflare Pages.
-        // TODO: Migrar a Cloudflare R2 u otro bucket S3.
-        newAvatarUrl = dbUser.avatarUrl;
-      } catch (uploadErr) {
-        console.error('Error procesando avatar:', uploadErr);
+    if (avatar) {
+      const avatarFile = avatar as File;
+      if (avatarFile.size > 0) {
+        try {
+          const env = Astro.locals.runtime?.env;
+          if (!env || !env.STORAGE) {
+            throw new Error('R2 Storage binding not found in Astro.locals.runtime.env');
+          }
+          const { STORAGE } = env;
+          const ext = avatarFile.name.split('.').pop() || 'jpg';
+          const fileName = `avatars/${user.id}.${ext}`;
+          
+          const arrayBuffer = await avatarFile.arrayBuffer();
+          
+          await STORAGE.put(fileName, arrayBuffer, {
+            httpMetadata: { contentType: avatarFile.type }
+          });
+          
+          newAvatarUrl = `/api/storage/${fileName}?t=${Date.now()}`;
+        } catch (uploadErr: any) {
+          console.error('Error procesando avatar:', uploadErr);
+          message = 'Error R2: ' + (uploadErr.message || String(uploadErr));
+          isError = true;
+        }
       }
     }
 
@@ -44,6 +78,7 @@ if (Astro.request.method === 'POST') {
       email: email ? email.toLowerCase() : null,
       biography,
       phone,
+      pronouns,
       avatarUrl: newAvatarUrl
     }).where(eq(userTable.id, user.id));
     
@@ -56,6 +91,7 @@ if (Astro.request.method === 'POST') {
     dbUser.email = email ? email.toLowerCase() : null;
     dbUser.biography = biography;
     dbUser.phone = phone;
+    dbUser.pronouns = pronouns;
     dbUser.avatarUrl = newAvatarUrl;
   } catch (err) {
     message = 'Error al actualizar la ficha.';
@@ -98,7 +134,7 @@ if (Astro.request.method === 'POST') {
           <div class="space-y-4">
             <div>
               <label class="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]">Comuna Base</label>
-              <div class="font-bold text-sm bg-white p-2 border border-[var(--color-border)] mt-1">Santiago Centro</div>
+              <div class="font-bold text-sm bg-white p-2 border border-[var(--color-border)] mt-1">{comunalBase}</div>
             </div>
             <div>
               <label class="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]">Estado Padrón</label>
@@ -119,11 +155,11 @@ if (Astro.request.method === 'POST') {
             
             <div class="flex flex-col md:flex-row items-start gap-6 bg-[var(--color-secondary)] p-6 border-2 border-[var(--color-border)]">
               <!-- Preview -->
-              <div class="w-32 h-32 bg-[var(--color-background)] rounded-none p-1 flex-shrink-0 border-2 border-white shadow-[4px_4px_0px_0px_var(--color-primary)] overflow-hidden">
+              <div class="w-32 h-32 bg-[var(--color-background)] rounded-none p-1 flex-shrink-0 border-2 border-white shadow-[4px_4px_0px_0px_var(--color-primary)] overflow-hidden" id="preview-container">
                 {dbUser.avatarUrl ? (
-                  <img src={dbUser.avatarUrl} alt="Avatar actual" class="w-full h-full object-cover" />
+                  <img src={dbUser.avatarUrl} id="avatar-preview" alt="Avatar actual" class="w-full h-full object-cover" />
                 ) : (
-                  <div class="w-full h-full bg-gray-400 flex items-center justify-center text-4xl font-black text-white uppercase">
+                  <div id="avatar-fallback" class="w-full h-full bg-gray-400 flex items-center justify-center text-4xl font-black text-white uppercase">
                     {(dbUser.name || 'U').charAt(0)}{(dbUser.lastName || 'S').charAt(0)}
                   </div>
                 )}
@@ -146,15 +182,21 @@ if (Astro.request.method === 'POST') {
           <section class="space-y-6">
             <h2 class="text-xl font-black uppercase tracking-tight border-l-4 border-[var(--color-primary)] pl-3">Datos Personales</h2>
             
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="space-y-2">
-                <label for="name" class="block text-xs font-bold uppercase tracking-widest">Nombres</label>
+                <label for="name" class="block text-xs font-bold uppercase tracking-widest">Nombres (Nombre Social)</label>
                 <input type="text" id="name" name="name" value={dbUser.name} required class="w-full border-2 border-[var(--color-foreground)] px-4 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)]" />
+                <p class="text-[9px] uppercase font-bold text-[var(--color-muted-foreground)]">Este nombre será el visible en toda la plataforma.</p>
               </div>
               <div class="space-y-2">
                 <label for="lastName" class="block text-xs font-bold uppercase tracking-widest">Apellidos</label>
                 <input type="text" id="lastName" name="lastName" value={dbUser.lastName} required class="w-full border-2 border-[var(--color-foreground)] px-4 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)]" />
               </div>
+            </div>
+
+            <div class="space-y-2 max-w-sm">
+              <label for="pronouns" class="block text-xs font-bold uppercase tracking-widest">Pronombres</label>
+              <input type="text" id="pronouns" name="pronouns" value={dbUser.pronouns || ''} class="w-full border-2 border-[var(--color-foreground)] px-4 py-2 font-bold focus:outline-none focus:border-[var(--color-primary)]" placeholder="Ej: él/lo, ella/la, elle/le" />
             </div>
 
             <div class="space-y-2">
@@ -194,3 +236,25 @@ if (Astro.request.method === 'POST') {
     </div>
   </div>
 </AppLayout>
+
+<script>
+  // Lógica para previsualización de imagen de perfil en tiempo real
+  const avatarInput = document.getElementById('avatar') as HTMLInputElement;
+  const previewContainer = document.getElementById('preview-container');
+
+  if (avatarInput && previewContainer) {
+    avatarInput.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            // Reemplazar todo el contenido del contenedor con la nueva imagen de previsualización
+            previewContainer.innerHTML = `<img src="${event.target.result}" id="avatar-preview" alt="Preview" class="w-full h-full object-cover" />`;
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+</script>

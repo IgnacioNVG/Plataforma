@@ -1,0 +1,141 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { db } from '../../../db';
+import { roleRequestTable, organizationTable, userTable, positionTypeTable } from '../../../db/schema';
+import { eq, desc, and } from 'drizzle-orm';
+import { authorize } from '../../../lib/authz';
+import crypto from 'crypto';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/');
+}
+
+// 1. Validar permiso (Orgánico o General)
+const canManageOrg = await authorize(user.id, 'manage', 'organization');
+if (!canManageOrg) {
+  return new Response('Acceso Denegado', { status: 403 });
+}
+
+// 2. Manejar POST (Aprobar o Rechazar)
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const reqId = data.get('reqId')?.toString();
+  const action = data.get('action')?.toString(); 
+
+  if (reqId && (action === 'approve' || action === 'reject')) {
+    const status = action === 'approve' ? 'approved' : 'rejected';
+    
+    // Obtener la solicitud
+    const req = await db.select().from(roleRequestTable).where(eq(roleRequestTable.id, reqId)).get();
+    
+    if (req && status === 'approved') {
+      // Crear el nuevo cargo (positionType) y dejarlo disponible
+      await db.insert(positionTypeTable).values({
+        id: crypto.randomUUID(),
+        title: req.proposedTitle,
+        functionalArea: req.proposedFunctionalArea,
+        baseClearance: 3 // Clearance por defecto para cargos directivos/funcionales
+      });
+      // Nota: En una app real, quizas el positionTypeTable sea global y la solicitud lo vincula a la org.
+      // O bien, se crea un cargo específico si es necesario.
+    }
+
+    await db.update(roleRequestTable)
+      .set({ 
+        status,
+        resolvedAt: new Date(),
+        resolvedByUserId: user.id
+      })
+      .where(eq(roleRequestTable.id, reqId));
+  }
+}
+
+// 3. Obtener solicitudes pendientes
+const rawRequests = await db.select({
+  request: roleRequestTable,
+  org: organizationTable,
+  requester: userTable
+})
+.from(roleRequestTable)
+.innerJoin(organizationTable, eq(roleRequestTable.organizationId, organizationTable.id))
+.innerJoin(userTable, eq(roleRequestTable.requesterUserId, userTable.id))
+.where(eq(roleRequestTable.status, 'pending'))
+.orderBy(desc(roleRequestTable.requestedAt));
+
+const pendingRequests = [];
+for (const row of rawRequests) {
+  const canManageThisOrg = await authorize(user.id, 'manage', 'organization', 'interno', row.org.id);
+  if (canManageThisOrg) {
+    pendingRequests.push(row);
+  }
+}
+---
+
+<AppLayout title="Aprobación de Cargos | Directorio">
+  <div class="max-w-5xl mx-auto py-12 px-4">
+    
+    <div class="flex items-center justify-between mb-12 border-b-4 border-[var(--color-foreground)] pb-6">
+      <div>
+        <h1 class="text-4xl font-black uppercase tracking-tighter text-[var(--color-foreground)]">Solicitudes de Cargos</h1>
+        <p class="text-[var(--color-muted-foreground)] font-bold uppercase tracking-widest text-sm mt-2">Buzón de la Mesa Directiva</p>
+      </div>
+      <a href="/directorio" class="bg-[var(--color-secondary)] px-6 py-3 border-4 border-[var(--color-foreground)] text-[var(--color-foreground)] font-black uppercase tracking-widest hover:bg-[var(--color-foreground)] hover:text-white transition-colors">
+        Volver
+      </a>
+    </div>
+
+    {pendingRequests.length === 0 ? (
+      <div class="border-4 border-dashed border-[var(--color-muted-foreground)] p-12 text-center bg-[var(--color-secondary)]">
+        <p class="text-xl font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">No hay propuestas pendientes</p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 gap-6">
+        {pendingRequests.map(({ request, org, requester }) => (
+          <div class="border-4 border-[var(--color-foreground)] bg-[var(--color-background)] p-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between shadow-[6px_6px_0px_0px_var(--color-primary)]">
+            
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="bg-[var(--color-secondary)] text-[var(--color-foreground)] px-3 py-1 text-xs font-black uppercase tracking-widest border border-[var(--color-foreground)]">
+                  Nuevo Cargo
+                </span>
+                <span class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase">
+                  Hace {Math.floor((new Date().getTime() - new Date(request.requestedAt).getTime()) / 60000)} min
+                </span>
+              </div>
+              <h3 class="text-xl font-black uppercase tracking-tight">{request.proposedTitle}</h3>
+              <p class="text-sm font-bold text-[var(--color-muted-foreground)] mt-1">
+                Área Funcional: <span class="text-[var(--color-primary)]">{request.proposedFunctionalArea}</span>
+              </p>
+              <p class="text-sm font-bold text-[var(--color-muted-foreground)] mt-1">
+                Órgano: <span class="text-[var(--color-foreground)]">{org.name}</span>
+              </p>
+              <p class="text-sm font-bold text-[var(--color-muted-foreground)] mt-1">
+                Propuesto por: <span class="text-[var(--color-foreground)]">{requester.name} {requester.lastName}</span>
+              </p>
+            </div>
+
+            <div class="flex gap-4 w-full md:w-auto">
+              <form method="POST" class="flex-1 md:flex-none">
+                <input type="hidden" name="reqId" value={request.id} />
+                <input type="hidden" name="action" value="reject" />
+                <button type="submit" class="w-full bg-red-600 text-white px-6 py-3 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-red-700 transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+                  Rechazar
+                </button>
+              </form>
+              <form method="POST" class="flex-1 md:flex-none">
+                <input type="hidden" name="reqId" value={request.id} />
+                <input type="hidden" name="action" value="approve" />
+                <button type="submit" class="w-full bg-green-600 text-white px-6 py-3 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] hover:bg-green-700 transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+                  Aprobar
+                </button>
+              </form>
+            </div>
+
+          </div>
+        ))}
+      </div>
+    )}
+
+  </div>
+</AppLayout>

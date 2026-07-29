@@ -14,7 +14,8 @@ const allNews = await db.select({
   imageUrl: newsTable.imageUrl,
   publishedAt: newsTable.publishedAt,
   authorName: userTable.name,
-  authorLastName: userTable.lastName
+  authorLastName: userTable.lastName,
+  authorPronouns: userTable.pronouns
 })
 .from(newsTable)
 .leftJoin(userTable, eq(newsTable.authorId, userTable.id))
@@ -93,7 +94,9 @@ const canEdit = await authorize(user?.id, 'manage', 'news');
               </p>
               
               <div class="flex items-center gap-2">
-                <span class="text-[10px] font-black uppercase tracking-widest text-[var(--color-foreground)] bg-[var(--color-secondary)] px-2 py-1 border border-[var(--color-border)]">Por {mainNews.authorName} {mainNews.authorLastName}</span>
+                <span class="text-[10px] font-black uppercase tracking-widest text-[var(--color-foreground)] bg-[var(--color-secondary)] px-2 py-1 border border-[var(--color-border)]">
+                  Por {mainNews.authorName} {mainNews.authorLastName} {mainNews.authorPronouns && <span class="text-[9px] text-gray-500 lowercase font-medium tracking-normal">({mainNews.authorPronouns})</span>}
+                </span>
               </div>
             </article>
           </a>

@@ -8,7 +8,7 @@ export const organizationTable = sqliteTable('organization', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
-  type: text('type').notNull(), // 'nacional', 'regional', 'comunal', 'nucleo', 'comision', 'autonomo'
+  type: text('type').notNull(), // 'nacional', 'comite_central', 'comision_politica', 'dns', 'dnsup', 'regional', 'comunal', 'brigada', 'nucleo'
   parentId: text('parent_id'), // Self-referential tree handled in code
   territoryScope: text('territory_scope'), // ej: "RM", "Santiago"
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
@@ -18,6 +18,7 @@ export const positionTypeTable = sqliteTable('position_type', {
   id: text('id').primaryKey(),
   title: text('title').notNull(), // Ej: "Presidente", "Secretario General", "Militante"
   baseClearance: integer('base_clearance').default(1).notNull(), // 1=Público, 2=Interno, 3=Reservado, 4=Confidencial
+  functionalArea: text('functional_area').default('general').notNull() // 'presidencia', 'politico', 'organico', 'genero', 'finanzas', 'representativo', 'general', 'militante'
 });
 
 // ---------------------------------------------------------
@@ -35,7 +36,10 @@ export const userTable = sqliteTable('user', {
   avatarUrl: text('avatar_url'),
   passwordHash: text('password_hash').notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
-  // ELIMINADOS: role, clearanceLevel (Ahora dependen del motor de vigencia)
+  lastLoginAt: integer('last_login_at', { mode: 'timestamp' }),
+  currentStreak: integer('current_streak').default(0).notNull(),
+  longestStreak: integer('longest_streak').default(0).notNull(),
+  pronouns: text('pronouns'), // Ej: él/lo, ella/la, elle/le
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 });
 
@@ -58,6 +62,7 @@ export const padronProvisorioTable = sqliteTable('padron_provisorio', {
   comuna: text('comuna'),
   status: text('status').default('Activo'),
   role: text('role').default('Militante Base'),
+  birthDate: text('birth_date'),
   joinDate: text('join_date'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 });
@@ -96,6 +101,32 @@ export const policyTable = sqliteTable('policy', {
 });
 
 // ---------------------------------------------------------
+// GESTIÓN FLEXIBLE (REQUESTS)
+// ---------------------------------------------------------
+
+export const accessRequestTable = sqliteTable('access_request', {
+  id: text('id').primaryKey(),
+  documentId: text('document_id').notNull().references(() => documentTable.id),
+  requesterUserId: text('requester_user_id').notNull().references(() => userTable.id),
+  status: text('status').default('pending').notNull(), // 'pending', 'approved', 'rejected'
+  requestedAt: integer('requested_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  resolvedAt: integer('resolved_at', { mode: 'timestamp' }),
+  resolvedByUserId: text('resolved_by_user_id').references(() => userTable.id)
+});
+
+export const roleRequestTable = sqliteTable('role_request', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id').notNull().references(() => organizationTable.id),
+  proposedTitle: text('proposed_title').notNull(),
+  proposedFunctionalArea: text('proposed_functional_area').notNull(),
+  requesterUserId: text('requester_user_id').notNull().references(() => userTable.id),
+  status: text('status').default('pending').notNull(), // 'pending', 'approved', 'rejected'
+  requestedAt: integer('requested_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  resolvedAt: integer('resolved_at', { mode: 'timestamp' }),
+  resolvedByUserId: text('resolved_by_user_id').references(() => userTable.id)
+});
+
+// ---------------------------------------------------------
 // RECURSOS (Clasificados)
 // ---------------------------------------------------------
 // classification: 'publico' | 'interno' | 'reservado' | 'confidencial'
@@ -115,11 +146,13 @@ export const newsTable = sqliteTable('news', {
 export const documentTable = sqliteTable('document', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  fileUrl: text('file_url').notNull(),
-  category: text('category').notNull(), // Ej: "Acta", "Resolución"
+  fileUrl: text('file_url').notNull(), // Si es puro video, guardamos una cadena vacía o placeholder
+  youtubeUrl: text('youtube_url'),
+  category: text('category').notNull(), // Ej: "Acta", "Resolución", "Audiovisual"
   authorId: text('author_id').notNull().references(() => userTable.id),
   organizationId: text('organization_id').notNull().references(() => organizationTable.id),
   classification: text('classification').default('interno').notNull(),
+  clearanceLevel: integer('clearance_level').default(1).notNull(), // 1=Público, 2=Interno, 3=Reservado, 4=Confidencial
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 });
 
@@ -128,6 +161,8 @@ export const eventTable = sqliteTable('event', {
   title: text('title').notNull(),
   description: text('description').notNull(),
   location: text('location'),
+  youtubeUrl: text('youtube_url'),
+  documentId: text('document_id').references(() => documentTable.id),
   startDate: integer('start_date', { mode: 'timestamp' }).notNull(),
   organizationId: text('organization_id').references(() => organizationTable.id),
   classification: text('classification').default('publico').notNull(),
@@ -236,5 +271,41 @@ export const notificationTable = sqliteTable('notification', {
   isRead: integer('is_read', { mode: 'boolean' }).default(false).notNull(),
   isArchived: integer('is_archived', { mode: 'boolean' }).default(false).notNull(),
   link: text('link'), // URL a redirigir
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+// ---------------------------------------------------------
+// GAMIFICACIÓN E INSIGNIAS
+// ---------------------------------------------------------
+
+export const badgeTable = sqliteTable('badge', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  iconSvg: text('icon_svg'), // Optional SVG string
+  conditionType: text('condition_type').notNull(), // e.g., 'streak', 'course_completed', 'forum_post'
+  targetValue: integer('target_value').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+export const userBadgeTable = sqliteTable('user_badge', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => userTable.id),
+  badgeId: text('badge_id').notNull().references(() => badgeTable.id),
+  unlockedAt: integer('unlocked_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+});
+
+// ---------------------------------------------------------
+// BITÁCORA DE ACTIVIDAD (TIMELINE PÚBLICO/PRIVADO)
+// ---------------------------------------------------------
+
+export const userActivityTable = sqliteTable('user_activity', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => userTable.id),
+  actionType: text('action_type').notNull(), // 'document_uploaded', 'course_completed', 'forum_posted'
+  title: text('title').notNull(),
+  link: text('link'),
+  organizationId: text('organization_id').references(() => organizationTable.id), // Para filtros de permiso
+  classification: text('classification').default('publico').notNull(), // 'publico', 'interno', 'reservado', 'confidencial'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 });

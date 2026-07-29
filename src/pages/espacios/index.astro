@@ -1,0 +1,156 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { appointmentTable, organizationTable, positionTypeTable } from '../../db/schema';
+import { eq, and, notInArray } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/');
+}
+
+// 1. Obtener mis espacios activos (appointment + organization + positionType)
+const myAppointments = await db.select({
+  org: organizationTable,
+  position: positionTypeTable
+}).from(appointmentTable)
+  .innerJoin(organizationTable, eq(appointmentTable.organizationId, organizationTable.id))
+  .innerJoin(positionTypeTable, eq(appointmentTable.positionTypeId, positionTypeTable.id))
+  .where(and(eq(appointmentTable.userId, user.id), eq(appointmentTable.status, 'activo')))
+  .all();
+
+const myOrgIds = myAppointments.map(a => a.org.id);
+const isSecretariado = myAppointments.some(a => ['presidencia', 'politico', 'organico', 'general'].includes(a.position.functionalArea));
+
+// 2. Obtener otros espacios disponibles para solicitar unirse
+const otherOrgs = await db.select().from(organizationTable)
+  .where(myOrgIds.length > 0 ? notInArray(organizationTable.id, myOrgIds) : undefined)
+  .limit(10)
+  .all();
+---
+
+<AppLayout title="Mis Espacios Orgánicos">
+  <div class="mb-8 flex justify-between items-end border-b border-[var(--color-foreground)] pb-6">
+    <div>
+      <h1 class="text-4xl font-bold text-[var(--color-foreground)]">Mis Espacios</h1>
+      <p class="text-[var(--color-muted-foreground)] mt-2">Tus frentes, brigadas, comunales y comisiones.</p>
+    </div>
+    {isSecretariado && (
+      <a href="/espacios/secretariado" class="bg-[var(--color-foreground)] text-white px-4 py-2 font-black uppercase tracking-widest text-xs hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-primary)] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none hidden md:block">
+        Panel de Secretariado
+      </a>
+    )}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    
+    <!-- Mis Espacios Activos -->
+    <div class="space-y-6">
+      <h2 class="text-xl font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2">Tus Espacios Activos</h2>
+      
+      {myAppointments.length === 0 ? (
+        <p class="text-[var(--color-muted-foreground)]">No estás asignado a ningún espacio aún.</p>
+      ) : (
+        myAppointments.map(appt => (
+          <article class="border border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white p-6 rounded-[var(--radius-sm)] flex flex-col gap-4 relative overflow-hidden shadow-[4px_4px_0px_0px_var(--color-primary)]">
+            <svg class="absolute -right-10 -bottom-10 w-48 h-48 opacity-10 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"></path></svg>
+            <div class="relative z-10">
+              <div class="flex justify-between items-start mb-2">
+                <span class="bg-[var(--color-primary)] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-widest">{appt.org.type}</span>
+                <span class="text-xs font-medium text-gray-300 uppercase tracking-widest">{appt.position.title}</span>
+              </div>
+              <h3 class="text-2xl font-bold mb-1">{appt.org.name}</h3>
+              <p class="text-sm text-gray-300 mb-6 uppercase tracking-widest text-[10px]">{appt.org.territoryScope || 'Nacional'}</p>
+              
+              <div class="flex gap-3">
+                <a href={`/espacios/${appt.org.id}`} class="inline-block bg-white text-[var(--color-foreground)] px-4 py-2 text-xs font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-0.5 hover:translate-x-0.5 hover:shadow-none transition-all">
+                  Ir al Tablero
+                </a>
+              </div>
+            </div>
+          </article>
+        ))
+      )}
+    </div>
+
+    <!-- Directorio de Espacios -->
+    <div class="space-y-6">
+      <h2 class="text-xl font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2">Explorar Espacios</h2>
+      
+      <div id="request-error" class="hidden text-sm bg-red-100 border-l-4 border-red-500 text-red-700 p-2 font-bold mb-4"></div>
+      <div id="request-success" class="hidden text-sm bg-green-100 border-l-4 border-green-500 text-green-700 p-2 font-bold mb-4"></div>
+
+      <div class="flex flex-col gap-4">
+        {otherOrgs.length === 0 ? (
+          <p class="text-[var(--color-muted-foreground)]">No hay más espacios disponibles.</p>
+        ) : (
+          otherOrgs.map(org => (
+            <div class="border border-[var(--color-border)] bg-[var(--color-background)] p-4 flex justify-between items-center hover:border-[var(--color-foreground)] transition-colors shadow-sm">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[8px] font-black uppercase tracking-widest bg-gray-200 text-gray-600 px-1 py-0.5">{org.type}</span>
+                </div>
+                <h4 class="font-bold text-[var(--color-foreground)]">{org.name}</h4>
+                <p class="text-xs text-[var(--color-muted-foreground)] mt-1">{org.territoryScope || 'Nacional'}</p>
+              </div>
+              <button class="btn-solicitar text-xs font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] px-3 py-2 hover:bg-[var(--color-foreground)] hover:text-white transition-colors" data-id={org.id} data-name={org.name}>
+                Solicitar Ingreso
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+    </div>
+
+  </div>
+</AppLayout>
+
+<script>
+  const buttons = document.querySelectorAll('.btn-solicitar');
+  const errorDiv = document.getElementById('request-error');
+  const successDiv = document.getElementById('request-success');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const orgId = target.getAttribute('data-id');
+      const orgName = target.getAttribute('data-name');
+      
+      if (!orgId) return;
+      
+      errorDiv?.classList.add('hidden');
+      successDiv?.classList.add('hidden');
+      
+      target.disabled = true;
+      target.textContent = 'Solicitando...';
+      
+      try {
+        const response = await fetch('/api/solicitudes/unirse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId: orgId, orgName })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          successDiv!.textContent = `Solicitud enviada al secretariado de ${orgName}.`;
+          successDiv?.classList.remove('hidden');
+          target.textContent = 'Enviado';
+          target.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+          errorDiv!.textContent = data.error || 'Ocurrió un error al enviar la solicitud.';
+          errorDiv?.classList.remove('hidden');
+          target.disabled = false;
+          target.textContent = 'Solicitar Ingreso';
+        }
+      } catch (err) {
+        errorDiv!.textContent = 'Error de conexión.';
+        errorDiv?.classList.remove('hidden');
+        target.disabled = false;
+        target.textContent = 'Solicitar Ingreso';
+      }
+    });
+  });
+</script>

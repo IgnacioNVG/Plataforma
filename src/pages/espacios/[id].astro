@@ -1,0 +1,316 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { db } from '../../db';
+import { organizationTable, appointmentTable, userTable, positionTypeTable, eventTable, newsTable, documentTable, forumTopicTable, forumCategoryTable } from '../../db/schema';
+import { eq, and, desc, gte } from 'drizzle-orm';
+
+const { id } = Astro.params;
+const user = Astro.locals.user;
+if (!user || !id) return Astro.redirect('/');
+
+// Obtener la organización
+const org = await db.select().from(organizationTable).where(eq(organizationTable.id, id)).get();
+if (!org) return Astro.redirect('/404');
+
+// Verificar si el usuario pertenece a este espacio o tiene permisos jerárquicos
+const myAppointment = await db.select()
+  .from(appointmentTable)
+  .where(and(
+    eq(appointmentTable.userId, user.id),
+    eq(appointmentTable.organizationId, id),
+    eq(appointmentTable.status, 'activo')
+  ))
+  .get();
+
+// Si no pertenece, lo sacamos (después podemos afinar esto con PBAC real para autoridades superiores)
+if (!myAppointment) {
+   return Astro.redirect('/espacios');
+}
+
+// Cargar compañeros (Militantes y Secretariados del espacio)
+const members = await db.select({
+  appointment: appointmentTable,
+  user: {
+    id: userTable.id,
+    name: userTable.name,
+    lastName: userTable.lastName,
+    avatarUrl: userTable.avatarUrl,
+    pronouns: userTable.pronouns,
+  },
+  position: positionTypeTable
+})
+.from(appointmentTable)
+.innerJoin(userTable, eq(appointmentTable.userId, userTable.id))
+.innerJoin(positionTypeTable, eq(appointmentTable.positionTypeId, positionTypeTable.id))
+.where(and(
+  eq(appointmentTable.organizationId, id),
+  eq(appointmentTable.status, 'activo')
+))
+.all();
+
+// Comprobar si el usuario actual es de un área de secretariado (para mostrar UI de definición)
+let isSecretariado = false;
+if (myAppointment) {
+  const myPosition = await db.select().from(positionTypeTable).where(eq(positionTypeTable.id, myAppointment.positionTypeId)).get();
+  if (myPosition && myPosition.functionalArea !== 'militante' && myPosition.functionalArea !== 'general') {
+    isSecretariado = true;
+  }
+}
+
+// Cargar Noticias / Muro
+const recentNews = await db.select({
+  news: newsTable,
+  author: {
+    name: userTable.name,
+    lastName: userTable.lastName,
+    pronouns: userTable.pronouns
+  }
+})
+.from(newsTable)
+.innerJoin(userTable, eq(newsTable.authorId, userTable.id))
+.where(eq(newsTable.organizationId, id))
+.orderBy(desc(newsTable.publishedAt))
+.limit(5)
+.all();
+
+// Cargar Próximos Eventos
+const today = new Date();
+today.setHours(0,0,0,0);
+const upcomingEvents = await db.select()
+  .from(eventTable)
+  .where(and(
+    eq(eventTable.organizationId, id),
+    gte(eventTable.startDate, today),
+    eq(eventTable.status, 'aprobado')
+  ))
+  .orderBy(eventTable.startDate)
+  .limit(3)
+  .all();
+
+// Cargar Documentos Recientes
+const recentDocs = await db.select()
+  .from(documentTable)
+  .where(eq(documentTable.organizationId, id))
+  .orderBy(desc(documentTable.createdAt))
+  .limit(3)
+  .all();
+
+// Posiciones disponibles para definir secretariados
+const availablePositions = await db.select().from(positionTypeTable).all();
+
+---
+
+<AppLayout title={`${org.name} | Tablero`}>
+  <!-- Cabecera del Espacio (Brutalista) -->
+  <div class="bg-[var(--color-foreground)] text-[var(--color-background)] p-8 md:p-12 -mx-8 -mt-8 mb-8 border-b-8 border-[var(--color-primary)]">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+      <div>
+        <span class="inline-block bg-[var(--color-primary)] text-white text-xs font-bold uppercase tracking-widest px-3 py-1 mb-6">{org.type.replace('_', ' ')}</span>
+        <h1 class="text-5xl font-black uppercase tracking-tighter leading-none text-white">{org.name}</h1>
+        {org.description && (
+          <p class="mt-6 text-gray-300 max-w-2xl text-lg font-medium leading-relaxed border-l-4 border-[var(--color-primary)] pl-4">{org.description}</p>
+        )}
+      </div>
+      <div class="flex gap-4 w-full md:w-auto">
+        <a href={`/espacios/${id}/ajustes`} class="bg-[var(--color-background)] text-[var(--color-foreground)] font-black px-6 py-3 uppercase text-sm hover:bg-gray-200 transition-colors tracking-widest shadow-[4px_4px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-none flex items-center justify-center">
+          ⚙️ Ajustes del Espacio
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-12 pb-20">
+    
+    <!-- Columna Central: Muro y Foros -->
+    <div class="lg:col-span-2 space-y-12">
+      
+      <!-- Tablero / Muro (Noticias) -->
+      <section>
+        <div class="flex justify-between items-center border-b-4 border-[var(--color-foreground)] pb-4 mb-8">
+          <h2 class="text-3xl font-black uppercase tracking-tight">Boletín del Espacio</h2>
+          <a href={`/admin/noticias/crear`} class="text-sm font-bold text-[var(--color-primary)] hover:underline uppercase tracking-widest">+ Publicar</a>
+        </div>
+
+        <div class="space-y-6">
+          {recentNews.length === 0 ? (
+             <div class="border-2 border-dashed border-[var(--color-muted-foreground)] p-8 text-center bg-gray-50">
+               <p class="font-black text-[var(--color-muted-foreground)] uppercase tracking-widest text-xs">No hay boletines publicados aún.</p>
+             </div>
+          ) : (
+            recentNews.map(item => (
+              <div class="border-2 border-[var(--color-foreground)] p-6 bg-[var(--color-background)] shadow-[4px_4px_0px_0px_var(--color-border)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_var(--color-border)] transition-all">
+                <div class="flex justify-between items-center mb-4 border-b border-[var(--color-border)] pb-4">
+                  <span class="font-black text-lg uppercase tracking-tight">
+                    {item.author.name} {item.author.lastName}
+                    {item.author.pronouns && <span class="text-xs text-gray-400 lowercase font-medium tracking-normal ml-1">({item.author.pronouns})</span>}
+                  </span>
+                  <span class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">
+                    {new Date(item.news.publishedAt).toLocaleDateString('es-CL')}
+                  </span>
+                </div>
+                <h3 class="font-black text-xl mb-2">{item.news.title}</h3>
+                <p class="text-sm font-medium leading-relaxed mb-4">{item.news.content}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <!-- Foro Interno Rápido -->
+      <section>
+        <div class="flex justify-between items-center border-b-4 border-[var(--color-foreground)] pb-4 mb-8">
+          <h2 class="text-3xl font-black uppercase tracking-tight">Foro Interno</h2>
+          <a href={`/foros`} class="text-sm font-bold text-[var(--color-primary)] hover:underline uppercase tracking-widest">Ir al Foro &rarr;</a>
+        </div>
+        <div class="border-2 border-[var(--color-foreground)] bg-[#FFFDF5] p-8 text-center shadow-[4px_4px_0px_0px_var(--color-primary)]">
+            <h4 class="font-black text-lg uppercase mb-2">Discusión Abierta</h4>
+            <p class="text-xs text-[var(--color-muted-foreground)] mb-6 font-bold uppercase tracking-widest">Debate orgánico y resoluciones del espacio.</p>
+            <a href={`/foros`} class="inline-block bg-[var(--color-foreground)] text-white px-6 py-3 font-black uppercase text-xs hover:bg-[var(--color-primary)] transition-colors shadow-[2px_2px_0px_0px_var(--color-foreground)]">
+              Entrar al Foro General
+            </a>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Columna Lateral: Compañeros, Calendario y Documentos -->
+    <div class="space-y-8">
+      
+      <!-- Miembros clave y Secretariados -->
+      <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-background)] p-6 shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+        <div class="flex justify-between items-center border-b-2 border-[var(--color-foreground)] pb-3 mb-5">
+            <h3 class="font-black uppercase tracking-tighter text-xl">Compañeros</h3>
+            <span class="text-xs font-bold bg-[var(--color-primary)] text-white px-2 py-0.5">{members.length}</span>
+        </div>
+        
+        <ul class="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+          {members.map(member => {
+             const isAutoridad = member.position.functionalArea !== 'militante';
+             return (
+               <li class="flex items-center gap-4 justify-between group">
+                 <div class="flex items-center gap-3">
+                   <div class="w-10 h-10 bg-gray-200 rounded-none border-2 border-[var(--color-foreground)] overflow-hidden shrink-0">
+                     {member.user.avatarUrl && <img src={member.user.avatarUrl} alt="Avatar" class="w-full h-full object-cover" />}
+                   </div>
+                   <div>
+                     <p class="text-sm font-black uppercase tracking-tight leading-none">
+                       {member.user.name} {member.user.lastName}
+                       {member.user.pronouns && <span class="text-[10px] text-gray-400 lowercase font-medium tracking-normal ml-1">({member.user.pronouns})</span>}
+                     </p>
+                     <p class={`text-[9px] font-bold uppercase tracking-widest mt-1 ${isAutoridad ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]'}`}>
+                       {member.position.title}
+                     </p>
+                   </div>
+                 </div>
+                 
+                 {/* UI para Asignar Secretariado (Solo visible para Secretariados actuales) */}
+                 {isSecretariado && !isAutoridad && (
+                   <div class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button type="button" onclick={`document.getElementById('modal-secretariado-${member.user.id}').showModal()`} class="text-[10px] font-black uppercase bg-[var(--color-foreground)] text-white px-2 py-1 hover:bg-[var(--color-primary)] transition-colors" title="Definir cargo">
+                        + Cargo
+                      </button>
+
+                      {/* Modal Interno para Seleccionar Cargo */}
+                      <dialog id={`modal-secretariado-${member.user.id}`} class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-0 shadow-[12px_12px_0px_0px_var(--color-primary)] backdrop:bg-black/80 max-w-sm w-full z-50">
+                        <div class="p-6">
+                          <h4 class="font-black text-xl uppercase mb-4 border-b-2 border-[var(--color-foreground)] pb-2 text-[var(--color-foreground)]">Definir Secretariado</h4>
+                          <p class="text-xs font-bold mb-4 uppercase tracking-widest text-[var(--color-muted-foreground)]">Para: {member.user.name} {member.user.lastName}</p>
+                          
+                          <form method="POST" action="/api/espacios/asignar-cargo" class="space-y-4">
+                             <input type="hidden" name="action" value="assign_secretariado" />
+                             <input type="hidden" name="userId" value={member.user.id} />
+                             <input type="hidden" name="organizationId" value={org.id} />
+                             
+                             <label class="block text-xs font-black uppercase text-[var(--color-muted-foreground)] mb-2">Cargo a Asignar</label>
+                             <select name="positionTypeId" class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] p-3 font-bold outline-none uppercase text-xs" required>
+                               <option value="" disabled selected>Seleccione cargo...</option>
+                               {availablePositions.filter(p => p.functionalArea !== 'militante').map(p => (
+                                 <option value={p.id}>{p.title}</option>
+                               ))}
+                             </select>
+
+                             <div class="flex gap-2 pt-4">
+                               <button type="submit" class="flex-1 bg-[var(--color-primary)] text-white font-black uppercase py-3 border-2 border-[var(--color-foreground)] hover:bg-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none transition-all">Asignar</button>
+                               <button type="button" onclick={`document.getElementById('modal-secretariado-${member.user.id}').close()`} class="flex-1 bg-gray-200 text-[var(--color-foreground)] font-black uppercase py-3 border-2 border-[var(--color-foreground)] hover:bg-gray-300 shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none transition-all">Cerrar</button>
+                             </div>
+                          </form>
+                        </div>
+                      </dialog>
+                   </div>
+                 )}
+               </li>
+             );
+          })}
+        </ul>
+      </div>
+
+      <!-- Calendario Interno -->
+      <div class="border-2 border-[var(--color-border)] bg-gray-50 p-6 shadow-[4px_4px_0px_0px_#e5e7eb]">
+        <div class="flex justify-between items-center mb-5">
+           <h3 class="font-black uppercase tracking-tighter text-xl">Agenda Interna</h3>
+           <a href={`/agenda`} class="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] hover:underline">Ver Todo</a>
+        </div>
+        
+        <ul class="space-y-4 relative pl-4 border-l-2 border-[var(--color-primary)]">
+          {upcomingEvents.length === 0 ? (
+            <li class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest">No hay eventos próximos agendados.</li>
+          ) : (
+            upcomingEvents.map(event => (
+              <li class="relative">
+                <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-none ring-2 ring-gray-50 bg-[var(--color-primary)] border border-black"></div>
+                <div class="text-[9px] font-black uppercase tracking-widest mb-1 text-[var(--color-primary)]">
+                  {new Date(event.startDate).toLocaleDateString('es-CL')}
+                </div>
+                <h4 class="font-black text-xs uppercase leading-tight hover:underline"><a href={`/agenda/${event.id}`}>{event.title}</a></h4>
+              </li>
+            ))
+          )}
+        </ul>
+        <a href="/admin/agenda" class="block w-full mt-6 text-center text-xs font-black uppercase tracking-widest border-2 border-[var(--color-primary)] text-[var(--color-primary)] py-2 hover:bg-[var(--color-primary)] hover:text-white transition-colors">
+          + Agendar
+        </a>
+      </div>
+
+      <!-- Documentos Subidos -->
+      <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-foreground)] text-white p-6 shadow-[4px_4px_0px_0px_var(--color-primary)]">
+        <div class="flex justify-between items-center mb-5 border-b border-gray-600 pb-2">
+           <h3 class="font-black uppercase tracking-tighter text-xl">Documentos</h3>
+           <a href={`/documentos`} class="text-[10px] font-black uppercase tracking-widest text-gray-300 hover:text-white hover:underline">Ir a Docs</a>
+        </div>
+        <ul class="space-y-3 text-sm font-bold">
+          {recentDocs.length === 0 ? (
+            <li class="text-xs text-gray-400 uppercase tracking-widest">Carpeta vacía.</li>
+          ) : (
+            recentDocs.map(doc => (
+              <li>
+                <a href={doc.fileUrl} target="_blank" class="hover:text-[var(--color-primary)] hover:translate-x-1 transition-all flex items-center gap-3">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 
+                  <span class="truncate">{doc.title}</span>
+                </a>
+              </li>
+            ))
+          )}
+        </ul>
+        <a href="/admin/documentos/subir" class="block w-full mt-5 text-center text-[10px] font-black uppercase tracking-widest bg-white text-[var(--color-foreground)] py-2 hover:bg-gray-200 transition-colors">
+           Subir Archivo
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <style>
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--color-foreground);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: var(--color-primary);
+    }
+  </style>
+</AppLayout>

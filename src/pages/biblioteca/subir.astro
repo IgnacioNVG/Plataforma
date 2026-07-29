@@ -1,0 +1,139 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/');
+}
+---
+
+<AppLayout title="Subir Documento | Biblioteca">
+  <div class="max-w-3xl mx-auto">
+    <div class="mb-8 border-b-4 border-[var(--color-foreground)] pb-4 flex justify-between items-end">
+      <div>
+        <h1 class="text-4xl font-black uppercase tracking-tight text-[var(--color-foreground)]">Añadir Documento</h1>
+        <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-2">Biblioteca Central</p>
+      </div>
+      <a href="/biblioteca" class="text-xs font-black uppercase tracking-widest underline decoration-2 hover:text-[var(--color-primary)] transition-colors">Volver</a>
+    </div>
+
+    <form id="upload-form" class="bg-white border-2 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)] p-8 space-y-6 relative">
+      
+      <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 font-bold text-sm uppercase">
+        <!-- Mensaje de error -->
+      </div>
+      
+      <div id="loading-overlay" class="hidden absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center">
+        <div class="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 font-black uppercase tracking-widest text-[var(--color-foreground)] text-sm animate-pulse">Subiendo documento...</p>
+      </div>
+
+      <div class="space-y-2">
+        <label for="title" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Título del Documento</label>
+        <input type="text" id="title" name="title" required class="w-full border-2 border-[var(--color-foreground)] bg-gray-50 px-4 py-3 font-bold text-sm focus:outline-none focus:border-[var(--color-primary)] focus:ring-0 rounded-none" placeholder="Ej: Resoluciones Comité Central 2024" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+          <label for="category" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Categoría</label>
+          <select id="category" name="category" required class="w-full border-2 border-[var(--color-foreground)] bg-gray-50 px-4 py-3 font-bold text-sm focus:outline-none focus:border-[var(--color-primary)] focus:ring-0 rounded-none cursor-pointer">
+            <option value="Resoluciones">Resoluciones</option>
+            <option value="Actas">Actas</option>
+            <option value="Material de Estudio">Material de Estudio</option>
+            <option value="Propuestas">Propuestas</option>
+            <option value="Comisiones">Comisiones</option>
+          </select>
+        </div>
+
+        <div class="space-y-2">
+          <label for="clearanceLevel" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Nivel de Acceso (Clearance)</label>
+          <select id="clearanceLevel" name="clearanceLevel" required class="w-full border-2 border-[var(--color-foreground)] bg-gray-50 px-4 py-3 font-bold text-sm focus:outline-none focus:border-[var(--color-primary)] focus:ring-0 rounded-none cursor-pointer">
+            <option value="1">Nivel 1 - Público General</option>
+            <option value="2" selected>Nivel 2 - Uso Interno (Militantes)</option>
+            <option value="3">Nivel 3 - Reservado (Dirigencia)</option>
+            <option value="4">Nivel 4 - Confidencial (Tribunal/CC)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="youtubeUrl" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Grabación Audiovisual (Opcional)</label>
+        <div class="flex items-center border-2 border-[var(--color-foreground)] bg-gray-50 focus-within:border-[var(--color-primary)]">
+          <span class="pl-4 text-gray-500 font-black">▶️</span>
+          <input type="url" id="youtubeUrl" name="youtubeUrl" class="w-full bg-transparent px-4 py-3 font-bold text-sm focus:outline-none focus:ring-0" placeholder="Ej: https://www.youtube.com/watch?v=..." />
+        </div>
+        <p class="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase">Si el acta fue grabada, pega aquí el enlace del video.</p>
+      </div>
+
+      <div class="space-y-2 pt-4 border-t-2 border-dashed border-gray-300">
+        <label for="document" class="block text-xs font-black uppercase tracking-widest text-[var(--color-foreground)]">Archivo Adjunto PDF, Word, Excel o PowerPoint (Opcional si hay video)</label>
+        <div class="relative w-full border-2 border-dashed border-[var(--color-foreground)] hover:border-[var(--color-primary)] bg-gray-50 hover:bg-gray-100 transition-colors p-8 text-center cursor-pointer group">
+          <input type="file" id="document" name="document" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*,application/vnd.ms-excel,application/vnd.ms-powerpoint" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+          <div class="flex flex-col items-center">
+            <svg class="w-10 h-10 mb-2 text-gray-400 group-hover:text-[var(--color-primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            <span id="file-name" class="font-bold text-sm text-gray-600 group-hover:text-[var(--color-foreground)]">Arrastra tu Archivo aquí o haz clic para buscar</span>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="w-full bg-[var(--color-foreground)] text-white font-black uppercase tracking-widest py-4 mt-6 hover:bg-[var(--color-primary)] transition-colors border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] active:translate-y-1 active:translate-x-1 active:shadow-[0px_0px_0px_0px_var(--color-primary)] flex justify-center items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Registrar y Subir Documento
+      </button>
+
+    </form>
+  </div>
+</AppLayout>
+
+<script>
+  const fileInput = document.getElementById('document') as HTMLInputElement;
+  const fileNameDisplay = document.getElementById('file-name');
+  const form = document.getElementById('upload-form') as HTMLFormElement;
+  const errorDiv = document.getElementById('error-message');
+  const loadingOverlay = document.getElementById('loading-overlay');
+
+  if (fileInput && fileNameDisplay) {
+    fileInput.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        fileNameDisplay.textContent = `Seleccionado: ${target.files[0].name}`;
+        fileNameDisplay.classList.add('text-[var(--color-primary)]');
+      } else {
+        fileNameDisplay.textContent = 'Arrastra tu PDF aquí o haz clic para buscar';
+        fileNameDisplay.classList.remove('text-[var(--color-primary)]');
+      }
+    });
+  }
+
+  if (form && errorDiv && loadingOverlay) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorDiv.classList.add('hidden');
+      loadingOverlay.classList.remove('hidden');
+
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch('/api/upload-document', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Redirect to the viewer page
+          window.location.href = `/biblioteca/${data.docId}`;
+        } else {
+          loadingOverlay.classList.add('hidden');
+          errorDiv.textContent = data.error || 'Ocurrió un error inesperado al subir el documento.';
+          errorDiv.classList.remove('hidden');
+        }
+      } catch (error) {
+        loadingOverlay.classList.add('hidden');
+        errorDiv.textContent = 'Error de conexión. Intenta nuevamente.';
+        errorDiv.classList.remove('hidden');
+      }
+    });
+  }
+</script>

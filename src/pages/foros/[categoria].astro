@@ -29,6 +29,7 @@ const topicsWithDetails = await Promise.all(topics.map(async (topic) => {
   return {
     ...topic,
     authorName: author ? `${author.name} ${author.lastName}` : 'Usuario Desconocido',
+    authorPronouns: author?.pronouns || null,
     replyCount: replies.length,
     latestReply,
     latestReplyAuthor: latestReplyAuthor ? `${latestReplyAuthor.name} ${latestReplyAuthor.lastName}` : null
@@ -80,7 +81,9 @@ const topicsWithDetails = await Promise.all(topics.map(async (topic) => {
             <div class="flex-1 min-w-0 pl-2">
               <div class="flex items-center gap-2 mb-2">
                 <span class="text-[var(--color-muted-foreground)] text-[10px] font-bold uppercase tracking-widest">
-                  Publicado por <span class="text-[var(--color-foreground)]">{topic.authorName}</span> • {new Date(topic.createdAt).toLocaleDateString('es-CL')}
+                  Publicado por <span class="text-[var(--color-foreground)]">{topic.authorName}</span> 
+                  {topic.authorPronouns && <span class="text-[9px] text-gray-500 lowercase font-medium tracking-normal">({topic.authorPronouns})</span>}
+                  • {new Date(topic.createdAt).toLocaleDateString('es-CL')}
                 </span>
               </div>
               

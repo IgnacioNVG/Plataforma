@@ -74,14 +74,32 @@ if (Astro.request.method === 'POST') {
 
       <div class="space-y-2">
         <label for="content" class="block text-sm font-black uppercase tracking-widest text-[var(--color-foreground)]">Mensaje Inicial *</label>
-        <textarea 
-          id="content" 
-          name="content" 
-          required
-          rows="10" 
-          class="w-full bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)]"
-          placeholder="Desarrolla tus ideas aquí..."
-        ></textarea>
+        <div class="border-4 border-[var(--color-foreground)] bg-[var(--color-background)] focus-within:bg-white transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] flex flex-col">
+          <!-- Toolbar -->
+          <div class="flex items-center gap-1 border-b-2 border-[var(--color-foreground)] p-2 bg-[var(--color-secondary)]">
+            <button type="button" class="toolbar-btn px-3 py-1 hover:bg-white font-bold text-xs" data-tag="**">N</button>
+            <button type="button" class="toolbar-btn px-3 py-1 hover:bg-white italic text-xs" data-tag="*">K</button>
+            <button type="button" class="toolbar-btn px-3 py-1 hover:bg-white font-bold text-xs" data-tag="[Texto](url)">Link</button>
+            <div class="w-px h-5 bg-[var(--color-foreground)] mx-2"></div>
+            <!-- Adjuntar Archivo -->
+            <label class="px-3 py-1 hover:bg-white font-bold text-xs cursor-pointer flex items-center gap-1">
+              📎 Adjuntar
+              <input type="file" id="attach-file" class="hidden" accept="image/*,.pdf" />
+            </label>
+            <!-- Citar Documento -->
+            <button type="button" id="cite-doc-btn" class="px-3 py-1 hover:bg-white font-bold text-xs flex items-center gap-1">
+              📄 Citar Doc
+            </button>
+          </div>
+          <textarea 
+            id="content" 
+            name="content" 
+            required
+            rows="10" 
+            class="w-full bg-transparent p-4 font-medium focus:outline-none resize-y"
+            placeholder="Desarrolla tus ideas aquí... Puedes usar formato Markdown y pegar links de YouTube."
+          ></textarea>
+        </div>
         <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-2">Mantén el respeto y la camaradería durante todo el debate.</p>
       </div>
 
@@ -96,3 +114,76 @@ if (Astro.request.method === 'POST') {
     </form>
   </div>
 </AppLayout>
+
+<script>
+  // Simple toolbar logic
+  const textarea = document.getElementById('content') as HTMLTextAreaElement;
+  const toolbarBtns = document.querySelectorAll('.toolbar-btn');
+
+  toolbarBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = (btn as HTMLElement).dataset.tag;
+      if (!tag || !textarea) return;
+      
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      
+      if (tag === '[Texto](url)') {
+        textarea.value = text.substring(0, start) + '[Enlace](https://...)' + text.substring(end);
+      } else {
+        textarea.value = text.substring(0, start) + tag + text.substring(start, end) + tag + text.substring(end);
+      }
+      textarea.focus();
+    });
+  });
+
+  // Attach logic
+  const attachInput = document.getElementById('attach-file') as HTMLInputElement;
+  if (attachInput) {
+    attachInput.addEventListener('change', async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const originalPlaceholder = textarea.placeholder;
+      textarea.placeholder = 'Subiendo archivo...';
+      textarea.disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload-attachment', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.url) {
+          const isImage = file.type.startsWith('image/');
+          const mdCode = isImage ? `![${file.name}](${data.url})` : `[📎 Adjunto: ${file.name}](${data.url})`;
+          textarea.value += `\n${mdCode}\n`;
+        } else {
+          alert(data.error || 'Error al subir archivo');
+        }
+      } catch (err) {
+        alert('Error de conexión');
+      } finally {
+        textarea.placeholder = originalPlaceholder;
+        textarea.disabled = false;
+        textarea.focus();
+      }
+    });
+  }
+
+  // Cite Doc logic
+  const citeBtn = document.getElementById('cite-doc-btn');
+  if (citeBtn) {
+    citeBtn.addEventListener('click', () => {
+      const docId = prompt('Ingresa la URL o ID del documento de la biblioteca:');
+      if (docId) {
+        textarea.value += `\n[📄 Documento Citado](/biblioteca/${docId.replace('/biblioteca/', '')})\n`;
+      }
+    });
+  }
+</script>

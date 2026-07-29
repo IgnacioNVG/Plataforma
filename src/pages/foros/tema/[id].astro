@@ -3,6 +3,26 @@ import AppLayout from '../../../layouts/AppLayout.astro';
 import { db } from '../../../db';
 import { forumCategoryTable, forumTopicTable, forumReplyTable, userTable } from '../../../db/schema';
 import { eq, asc } from 'drizzle-orm';
+import { marked } from 'marked';
+import sanitizeHtml from 'sanitize-html';
+
+function renderContent(text: string) {
+  if (!text) return '';
+  // Convert YouTube links to iframes
+  const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/g;
+  let processedText = text.replace(ytRegex, (match, p1) => {
+    return `\n\n<div class="aspect-video w-full max-w-2xl my-4 border-4 border-black shadow-[4px_4px_0px_0px_var(--color-primary)] bg-black"><iframe src="https://www.youtube.com/embed/${p1}" class="w-full h-full border-none" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>\n\n`;
+  });
+
+  const rawHtml = marked.parse(processedText) as string;
+  return sanitizeHtml(rawHtml, { 
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['iframe']), 
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      iframe: ['allow', 'allowfullscreen', 'frameborder', 'src']
+    }
+  });
+}
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/foros');
@@ -22,9 +42,13 @@ const replies = await Promise.all(rawReplies.map(async (reply) => {
   return {
     ...reply,
     authorName: replyAuthor ? `${replyAuthor.name} ${replyAuthor.lastName}` : 'Usuario Desconocido',
-    authorAvatar: replyAuthor?.avatarUrl || null
+    authorPronouns: replyAuthor?.pronouns || null,
+    authorAvatar: replyAuthor?.avatarUrl || null,
+    htmlContent: renderContent(reply.content)
   };
 }));
+
+const topicHtmlContent = renderContent(topic.content);
 
 const user = Astro.locals.user;
 let errorMessage = '';
@@ -83,7 +107,10 @@ if (Astro.request.method === 'POST') {
               </div>
             )}
           </div>
-          <p class="font-black text-sm uppercase leading-tight">{author ? `${author.name} ${author.lastName}` : 'Desconocido'}</p>
+          <p class="font-black text-sm uppercase leading-tight">
+            {author ? `${author.name} ${author.lastName}` : 'Desconocido'}
+            {author?.pronouns && <span class="block text-xs text-gray-400 lowercase font-medium tracking-normal mt-0.5">({author.pronouns})</span>}
+          </p>
           <p class="text-[10px] font-bold text-[var(--color-primary)] uppercase tracking-widest mt-1">Autor del Tema</p>
         </div>
         
@@ -93,9 +120,7 @@ if (Astro.request.method === 'POST') {
             <span>{new Date(topic.createdAt).toLocaleString('es-CL')}</span>
             <span>#1</span>
           </div>
-          <div class="p-6 font-medium text-[var(--color-foreground)] whitespace-pre-wrap leading-relaxed">
-            {topic.content}
-          </div>
+          <div class="p-6 font-medium text-[var(--color-foreground)] leading-relaxed prose prose-sm max-w-none" set:html={topicHtmlContent} />
         </div>
       </article>
 
@@ -113,7 +138,10 @@ if (Astro.request.method === 'POST') {
                 </div>
               )}
             </div>
-            <p class="font-black text-xs uppercase leading-tight">{reply.authorName}</p>
+            <p class="font-black text-xs uppercase leading-tight">
+              {reply.authorName}
+              {reply.authorPronouns && <span class="block text-[10px] text-gray-400 lowercase font-medium tracking-normal mt-0.5">({reply.authorPronouns})</span>}
+            </p>
           </div>
           
           <!-- Post Content -->
@@ -122,9 +150,7 @@ if (Astro.request.method === 'POST') {
               <span>{new Date(reply.createdAt).toLocaleString('es-CL')}</span>
               <span>#{index + 2}</span>
             </div>
-            <div class="p-5 font-medium text-[var(--color-foreground)] whitespace-pre-wrap leading-relaxed text-sm">
-              {reply.content}
-            </div>
+            <div class="p-5 text-sm font-medium text-[var(--color-foreground)] leading-relaxed prose prose-sm max-w-none" set:html={reply.htmlContent} />
           </div>
         </article>
       ))}
@@ -145,13 +171,32 @@ if (Astro.request.method === 'POST') {
         
         <form method="POST" class="mt-4">
           <div class="flex flex-col gap-4">
-            <textarea 
-              name="content" 
-              required
-              rows="5" 
-              class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] p-4 font-medium focus:outline-none focus:ring-0 focus:border-[var(--color-primary)] focus:bg-white transition-colors"
-              placeholder="Escribe tu respuesta aquí..."
-            ></textarea>
+            <div class="border-2 border-[var(--color-foreground)] bg-[var(--color-secondary)] focus-within:bg-white transition-colors flex flex-col">
+              <!-- Toolbar -->
+              <div class="flex items-center gap-1 border-b-2 border-[var(--color-foreground)] p-2 bg-[var(--color-background)]">
+                <button type="button" class="toolbar-btn px-2 py-1 hover:bg-[var(--color-secondary)] font-bold text-xs" data-tag="**">N</button>
+                <button type="button" class="toolbar-btn px-2 py-1 hover:bg-[var(--color-secondary)] italic text-xs" data-tag="*">K</button>
+                <button type="button" class="toolbar-btn px-2 py-1 hover:bg-[var(--color-secondary)] font-bold text-xs" data-tag="[Texto](url)">Link</button>
+                <div class="w-px h-4 bg-gray-400 mx-2"></div>
+                <!-- Adjuntar Archivo -->
+                <label class="px-2 py-1 hover:bg-[var(--color-secondary)] font-bold text-xs cursor-pointer flex items-center gap-1">
+                  📎 Adjuntar
+                  <input type="file" id="attach-file" class="hidden" accept="image/*,.pdf" />
+                </label>
+                <!-- Citar Documento -->
+                <button type="button" id="cite-doc-btn" class="px-2 py-1 hover:bg-[var(--color-secondary)] font-bold text-xs flex items-center gap-1">
+                  📄 Citar Doc
+                </button>
+              </div>
+              <textarea 
+                id="reply-content"
+                name="content" 
+                required
+                rows="6" 
+                class="w-full bg-transparent p-4 font-medium focus:outline-none resize-y"
+                placeholder="Escribe tu respuesta aquí... Puedes usar formato Markdown."
+              ></textarea>
+            </div>
             
             <div class="flex justify-end">
               <button type="submit" class="bg-[var(--color-foreground)] text-white px-8 py-3 font-black uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all">
@@ -172,3 +217,77 @@ if (Astro.request.method === 'POST') {
     )}
   </div>
 </AppLayout>
+
+<script>
+  // Simple toolbar logic
+  const textarea = document.getElementById('reply-content') as HTMLTextAreaElement;
+  const toolbarBtns = document.querySelectorAll('.toolbar-btn');
+
+  toolbarBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = (btn as HTMLElement).dataset.tag;
+      if (!tag || !textarea) return;
+      
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      
+      if (tag === '[Texto](url)') {
+        textarea.value = text.substring(0, start) + '[Enlace](https://...)' + text.substring(end);
+      } else {
+        textarea.value = text.substring(0, start) + tag + text.substring(start, end) + tag + text.substring(end);
+      }
+      textarea.focus();
+    });
+  });
+
+  // Attach logic
+  const attachInput = document.getElementById('attach-file') as HTMLInputElement;
+  if (attachInput) {
+    attachInput.addEventListener('change', async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      // Mostrar cargando en el textarea
+      const originalPlaceholder = textarea.placeholder;
+      textarea.placeholder = 'Subiendo archivo...';
+      textarea.disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload-attachment', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.url) {
+          const isImage = file.type.startsWith('image/');
+          const mdCode = isImage ? `![${file.name}](${data.url})` : `[📎 Adjunto: ${file.name}](${data.url})`;
+          textarea.value += `\n${mdCode}\n`;
+        } else {
+          alert(data.error || 'Error al subir archivo');
+        }
+      } catch (err) {
+        alert('Error de conexión');
+      } finally {
+        textarea.placeholder = originalPlaceholder;
+        textarea.disabled = false;
+        textarea.focus();
+      }
+    });
+  }
+
+  // Cite Doc logic (Simple prompt for now, could be a modal)
+  const citeBtn = document.getElementById('cite-doc-btn');
+  if (citeBtn) {
+    citeBtn.addEventListener('click', () => {
+      const docId = prompt('Ingresa la URL o ID del documento de la biblioteca:');
+      if (docId) {
+        textarea.value += `\n[📄 Documento Citado](/biblioteca/${docId.replace('/biblioteca/', '')})\n`;
+      }
+    });
+  }
+</script>

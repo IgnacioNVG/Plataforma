@@ -1,8 +1,9 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import { db } from '../../db';
-import { appointmentTable, positionTypeTable, organizationTable } from '../../db/schema';
+import { appointmentTable, positionTypeTable, organizationTable, badgeTable, userBadgeTable, enrollmentTable, courseTable } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getUserActivityFeed } from '../../lib/activity';
 
 const user = Astro.locals.user;
 if (!user) {
@@ -27,6 +28,42 @@ const activeAppointments = await db.select({
 )
 .all();
 
+// Fetch Gamification Data
+const userBadges = await db.select({
+  id: badgeTable.id,
+  name: badgeTable.name,
+  description: badgeTable.description,
+  iconSvg: badgeTable.iconSvg,
+  unlockedAt: userBadgeTable.unlockedAt
+})
+.from(userBadgeTable)
+.innerJoin(badgeTable, eq(userBadgeTable.badgeId, badgeTable.id))
+.where(eq(userBadgeTable.userId, user.id))
+.all();
+
+const allBadges = await db.select().from(badgeTable).all();
+
+// Map to know which are unlocked
+const unlockedIds = new Set(userBadges.map(b => b.id));
+
+// Fetch Dynamic Activity Feed
+const activities = await getUserActivityFeed(user.id, user.id);
+
+// Fetch Completed Courses
+const completedCourses = await db.select({
+  id: courseTable.id,
+  title: courseTable.title
+})
+.from(enrollmentTable)
+.innerJoin(courseTable, eq(enrollmentTable.courseId, courseTable.id))
+.where(
+  and(
+    eq(enrollmentTable.userId, user.id),
+    eq(enrollmentTable.status, 'completado')
+  )
+)
+.all();
+
 ---
 
 <AppLayout title="Mi Perfil">
@@ -37,20 +74,31 @@ const activeAppointments = await db.select({
       
       <div class="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-8">
         
-        <!-- Avatar Grande -->
-        <div class="w-32 h-32 md:w-40 md:h-40 bg-[var(--color-background)] rounded-none p-1 flex-shrink-0 border-2 border-white shadow-[4px_4px_0px_0px_var(--color-primary)] overflow-hidden">
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={`Avatar de ${user.name}`} class="w-full h-full object-cover" />
-          ) : (
-            <div class="w-full h-full bg-gray-400 rounded-none flex items-center justify-center text-4xl font-black text-white uppercase">
-              {(user.name || 'U').charAt(0)}{(user.lastName || 'S').charAt(0)}
-            </div>
-          )}
+        <!-- Avatar Grande con Subida -->
+        <div class="relative group w-32 h-32 md:w-40 md:h-40 bg-[var(--color-background)] rounded-none p-1 flex-shrink-0 border-2 border-white shadow-[4px_4px_0px_0px_var(--color-primary)] overflow-hidden cursor-pointer">
+          <label for="avatar-upload" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+            <span class="text-2xl">📸</span>
+            <span class="text-[10px] font-black uppercase mt-1">Cambiar Foto</span>
+          </label>
+          <input type="file" id="avatar-upload" class="hidden" accept="image/*" />
+          
+          <div id="avatar-preview" class="w-full h-full">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={`Avatar de ${user.name}`} class="w-full h-full object-cover" />
+            ) : (
+              <div class="w-full h-full bg-gray-400 rounded-none flex items-center justify-center text-4xl font-black text-white uppercase">
+                {(user.name || 'U').charAt(0)}{(user.lastName || 'S').charAt(0)}
+              </div>
+            )}
+          </div>
         </div>
         
         <div class="flex-1 text-center md:text-left">
           <div class="flex flex-col md:flex-row md:items-center gap-4 mb-2">
-            <h1 class="text-4xl font-black uppercase tracking-tight">{user.name} {user.lastName}</h1>
+            <h1 class="text-4xl font-black uppercase tracking-tight">
+              {user.name} {user.lastName} 
+              {user.pronouns && <span class="text-xl text-gray-400 lowercase font-medium tracking-normal ml-2">({user.pronouns})</span>}
+            </h1>
             <span class="bg-[var(--color-primary)] text-white text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-none border border-[var(--color-primary)]">
               {user.isActive ? 'Militante Activo' : 'Cuenta Inactiva'}
             </span>
@@ -67,13 +115,52 @@ const activeAppointments = await db.select({
             )}
           </div>
           
-          <!-- Acción Principal -->
-          <div class="mt-6 md:mt-0">
-            <a href="/perfil/editar" class="inline-block bg-[var(--color-background)] text-[var(--color-foreground)] px-6 py-3 text-sm font-black uppercase tracking-widest rounded-none hover:bg-gray-200 transition-colors shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] border-2 border-[var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-[0px_0px_0px_0px_rgba(200,16,46,1)]">
-              Editar Ficha
-            </a>
+          <!-- Racha (Streaks) -->
+          <div class="flex items-center gap-4 mt-6">
+            <div class="flex items-center gap-2 bg-black/20 px-3 py-1.5 border border-white/20">
+              <span class="text-xl">🔥</span>
+              <div class="flex flex-col">
+                <span class="text-xs font-black uppercase text-gray-300">Racha Actual</span>
+                <span class="text-lg font-bold leading-none">{user.currentStreak || 0} días</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 bg-black/20 px-3 py-1.5 border border-white/20">
+              <span class="text-xl">🏆</span>
+              <div class="flex flex-col">
+                <span class="text-xs font-black uppercase text-gray-300">Récord</span>
+                <span class="text-lg font-bold leading-none">{user.longestStreak || 0} días</span>
+              </div>
+            </div>
           </div>
         </div>
+        
+        <!-- Bio and Actions -->
+        <div class="mt-6 md:mt-0 flex flex-col items-end gap-4">
+          <a href="/perfil/editar" class="inline-block bg-[var(--color-background)] text-[var(--color-foreground)] px-6 py-3 text-sm font-black uppercase tracking-widest rounded-none hover:bg-gray-200 transition-colors shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] border-2 border-[var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-[0px_0px_0px_0px_rgba(200,16,46,1)]">
+            Editar Ficha
+          </a>
+        </div>
+      </div>
+      
+      <!-- Biografía Editable -->
+      <div class="mt-8 relative z-10 border-t-2 border-white/20 pt-6">
+        <h3 class="text-xs font-black text-gray-300 uppercase tracking-widest mb-2">Biografía / Presentación</h3>
+        <div id="bio-display" class="group relative">
+          <p class="text-sm font-medium italic text-gray-200 max-w-3xl">
+            {user.biography || 'Aún no has escrito una biografía. ¡Cuéntanos sobre ti!'}
+          </p>
+          <button id="edit-bio-btn" class="mt-2 text-xs font-bold text-yellow-400 hover:text-white uppercase tracking-widest underline decoration-2 transition-colors">
+            ✎ Editar Biografía
+          </button>
+        </div>
+        
+        <form id="bio-form" class="hidden max-w-3xl flex-col gap-2">
+          <textarea id="bio-input" class="w-full bg-white/10 border-2 border-white/30 text-white p-3 text-sm rounded-none focus:outline-none focus:border-yellow-400 resize-none h-24" placeholder="Escribe tu biografía aquí...">{user.biography}</textarea>
+          <div class="flex gap-2">
+            <button type="submit" class="bg-yellow-400 text-black px-4 py-2 text-xs font-black uppercase tracking-widest border border-yellow-400 hover:bg-yellow-500 transition-colors">Guardar</button>
+            <button type="button" id="cancel-bio-btn" class="bg-transparent text-white px-4 py-2 text-xs font-bold uppercase tracking-widest border border-white/30 hover:bg-white/10 transition-colors">Cancelar</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -101,13 +188,18 @@ const activeAppointments = await db.select({
         <section class="border-2 border-[var(--color-foreground)] bg-[var(--color-secondary)] p-6 rounded-none">
           <h3 class="text-xs font-black text-[var(--color-foreground)] uppercase tracking-widest border-b-2 border-[var(--color-border)] pb-2 mb-4">Insignias Formativas</h3>
           <div class="flex flex-wrap gap-2">
-            <!-- Badge -->
-            <div class="px-3 py-1.5 bg-[var(--color-foreground)] text-white text-[9px] uppercase font-black tracking-widest rounded-none shadow-[2px_2px_0px_0px_var(--color-primary)]">
-              Formación Básica
-            </div>
-            <div class="px-3 py-1.5 bg-white text-[var(--color-foreground)] text-[9px] uppercase font-black tracking-widest rounded-none border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-border)]">
-              Liderazgo 2023
-            </div>
+            {allBadges.map((badge) => {
+              const isUnlocked = unlockedIds.has(badge.id);
+              return (
+                <div title={badge.description} class={`px-3 py-2 flex items-center gap-2 rounded-none border-2 border-[var(--color-foreground)] transition-all ${isUnlocked ? 'bg-white shadow-[2px_2px_0px_0px_var(--color-foreground)] opacity-100' : 'bg-gray-200 opacity-50 grayscale'}`}>
+                  <span class="text-lg leading-none">{badge.iconSvg}</span>
+                  <span class="text-[9px] text-[var(--color-foreground)] uppercase font-black tracking-widest leading-none">
+                    {badge.name}
+                  </span>
+                  {!isUnlocked && <span class="text-[8px] ml-1">🔒</span>}
+                </div>
+              );
+            })}
           </div>
         </section>
         
@@ -118,30 +210,179 @@ const activeAppointments = await db.select({
         
         <!-- Tabs (Brutalistas) -->
         <div class="flex border-b-4 border-[var(--color-foreground)]">
-          <button class="px-6 py-3 font-black text-sm uppercase tracking-widest border-t-4 border-l-4 border-r-4 border-[var(--color-foreground)] bg-[var(--color-primary)] text-white -mb-1 relative z-10">Actividad Reciente</button>
-          <button class="px-6 py-3 font-bold text-xs uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors">Cursos Aprobados</button>
+          <button id="tab-btn-activity" class="px-6 py-3 font-black text-sm uppercase tracking-widest border-t-4 border-l-4 border-r-4 border-[var(--color-foreground)] bg-[var(--color-primary)] text-white -mb-1 relative z-10">Actividad Reciente</button>
+          <button id="tab-btn-courses" class="px-6 py-3 font-bold text-xs uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors border-t-4 border-l-4 border-r-4 border-transparent hover:bg-gray-100">Cursos Aprobados</button>
         </div>
         
-        <!-- Lista de Actividad (Timeline simple) -->
-        <div class="relative pl-6 border-l-4 border-[var(--color-border)] space-y-8 ml-2 mt-8">
-          
-          <!-- Item Timeline -->
-          <div class="relative">
-            <div class="absolute -left-[30px] top-1 w-4 h-4 bg-[var(--color-primary)] rounded-none border-2 border-[var(--color-foreground)]"></div>
-            <div class="text-[10px] text-[var(--color-foreground)] font-black uppercase tracking-widest mb-1">Ayer, 18:30</div>
-            <p class="text-sm font-medium">Subió un nuevo documento: <a href="#" class="font-black hover:text-[var(--color-primary)] uppercase underline decoration-2">Acta Asamblea Comunal.pdf</a> en la Biblioteca central.</p>
+        <!-- CONTENIDO TABS -->
+        <div id="tab-content-activity" class="block">
+          <!-- Lista de Actividad (Timeline simple) -->
+          <div class="relative pl-6 border-l-4 border-[var(--color-border)] space-y-8 ml-2 mt-8">
+            
+            {activities.length > 0 ? activities.map(act => (
+              <div class="relative">
+                <div class={`absolute -left-[30px] top-1 w-4 h-4 rounded-none border-2 border-[var(--color-foreground)] ${act.classification === 'reservado' || act.classification === 'confidencial' ? 'bg-red-500' : 'bg-[var(--color-primary)]'}`}></div>
+                <div class="text-[10px] text-[var(--color-foreground)] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
+                  {new Date(act.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {act.classification !== 'publico' && (
+                    <span class="bg-[var(--color-foreground)] text-white px-1 text-[8px] rounded-none">{act.classification}</span>
+                  )}
+                </div>
+                <p class="text-sm font-medium">
+                  {act.link ? (
+                    <a href={act.link} class="hover:text-[var(--color-primary)] decoration-2">{act.title}</a>
+                  ) : (
+                    <span>{act.title}</span>
+                  )}
+                </p>
+              </div>
+            )) : (
+              <div class="text-sm text-gray-400 italic">No hay actividad reciente.</div>
+            )}
+            
           </div>
-          
-          <!-- Item Timeline -->
-          <div class="relative">
-            <div class="absolute -left-[30px] top-1 w-4 h-4 bg-white rounded-none border-2 border-[var(--color-foreground)]"></div>
-            <div class="text-[10px] text-[var(--color-foreground)] font-black uppercase tracking-widest mb-1">12 Octubre 2023</div>
-            <p class="text-sm font-medium">Completó el módulo <span class="font-black uppercase">"La Cuestión Social"</span> del curso <span class="italic font-bold">Historia del Movimiento Obrero</span>.</p>
-          </div>
-          
+        </div>
+
+        <div id="tab-content-courses" class="hidden mt-8">
+          {completedCourses.length > 0 ? (
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {completedCourses.map(course => (
+                <div class="border-2 border-[var(--color-foreground)] p-4 bg-white hover:shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all">
+                  <h4 class="font-black text-[var(--color-foreground)] leading-tight mb-2 uppercase">{course.title}</h4>
+                  <div class="flex justify-between items-end">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase">
+                      Estado: Aprobado
+                    </span>
+                    <a href={`/escuela/${course.id}`} class="text-xs font-black text-[var(--color-primary)] hover:underline uppercase">Ver Certificado</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div class="text-sm font-bold text-gray-400 uppercase tracking-widest text-center py-8 border-2 border-dashed border-gray-300">
+              No tienes cursos aprobados aún.
+            </div>
+          )}
         </div>
         
       </div>
     </div>
   </div>
 </AppLayout>
+
+<script>
+  // --- LÓGICA SUBIDA AVATAR ---
+  const avatarInput = document.getElementById('avatar-upload');
+  
+  if (avatarInput) {
+    avatarInput.addEventListener('change', async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      try {
+        const res = await fetch('/api/upload-avatar', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Actualizar imagen localmente
+          const previewContainer = document.getElementById('avatar-preview');
+          if (previewContainer && data.avatarUrl) {
+            previewContainer.innerHTML = `<img src="${data.avatarUrl}" class="w-full h-full object-cover" />`;
+          }
+        } else {
+          alert('Error al subir la imagen. Intenta de nuevo.');
+        }
+      } catch (error) {
+        alert('Error de red al subir imagen.');
+      }
+    });
+  }
+
+  // Script para manejar la edición de la biografía
+  const editBtn = document.getElementById('edit-bio-btn');
+  const cancelBtn = document.getElementById('cancel-bio-btn');
+  const bioForm = document.getElementById('bio-form');
+  const bioDisplay = document.getElementById('bio-display');
+  const bioInput = document.getElementById('bio-input') as HTMLTextAreaElement;
+
+  if (editBtn && cancelBtn && bioForm && bioDisplay && bioInput) {
+    editBtn.addEventListener('click', () => {
+      bioDisplay.classList.add('hidden');
+      bioForm.classList.remove('hidden');
+      bioForm.classList.add('flex');
+      bioInput.focus();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      bioForm.classList.add('hidden');
+      bioForm.classList.remove('flex');
+      bioDisplay.classList.remove('hidden');
+    });
+
+    bioForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const newBio = bioInput.value;
+      
+      try {
+        const res = await fetch('/api/perfil/bio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ biography: newBio })
+        });
+        
+        if (res.ok) {
+          window.location.reload(); // Recargar para mostrar los cambios y notificaciones
+        } else {
+          alert('Error al actualizar la biografía');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error de conexión');
+      }
+    });
+  }
+</script>
+
+<script>
+  // Script para el manejo de los Tabs de Actividad / Cursos
+  const btnActivity = document.getElementById('tab-btn-activity');
+  const btnCourses = document.getElementById('tab-btn-courses');
+  const contentActivity = document.getElementById('tab-content-activity');
+  const contentCourses = document.getElementById('tab-content-courses');
+
+  if (btnActivity && btnCourses && contentActivity && contentCourses) {
+    
+    const setTabActive = (activeBtn, inactiveBtn, activeContent, inactiveContent) => {
+      // Activar botón
+      activeBtn.classList.add('border-[var(--color-foreground)]', 'bg-[var(--color-primary)]', 'text-white', '-mb-1', 'z-10');
+      activeBtn.classList.remove('border-transparent', 'text-[var(--color-muted-foreground)]', 'hover:bg-gray-100');
+      
+      // Desactivar botón
+      inactiveBtn.classList.remove('border-[var(--color-foreground)]', 'bg-[var(--color-primary)]', 'text-white', '-mb-1', 'z-10');
+      inactiveBtn.classList.add('border-transparent', 'text-[var(--color-muted-foreground)]', 'hover:bg-gray-100');
+      
+      // Mostrar contenido
+      activeContent.classList.remove('hidden');
+      activeContent.classList.add('block');
+      
+      // Ocultar contenido
+      inactiveContent.classList.add('hidden');
+      inactiveContent.classList.remove('block');
+    };
+
+    btnActivity.addEventListener('click', () => {
+      setTabActive(btnActivity, btnCourses, contentActivity, contentCourses);
+    });
+
+    btnCourses.addEventListener('click', () => {
+      setTabActive(btnCourses, btnActivity, contentCourses, contentActivity);
+    });
+  }
+</script>

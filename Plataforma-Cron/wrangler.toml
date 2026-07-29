@@ -1,0 +1,10 @@
+name = "plataforma-cron"
+main = "index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CRON_SECRET = "default-dev-secret" # En producción se reemplaza por el valor real usando `wrangler secret put`
+
+[triggers]
+crons = ["0 9 * * *"] # Todos los días a las 09:00 UTC

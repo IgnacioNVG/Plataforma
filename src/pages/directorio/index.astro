@@ -1,19 +1,17 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
-import OrgNode from '../../components/OrgNode.astro';
 import { db } from '../../db';
 import { organizationTable, appointmentTable, userTable, positionTypeTable } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import { authorize } from '../../lib/authz';
 
-// Permisos de Administración
 const user = Astro.locals.user;
 const canManageOrg = await authorize(user?.id, 'manage', 'organization');
 
-// 1. Cargar Todos los Órganos
+// 1. Cargar Órganos
 const orgs = await db.select().from(organizationTable).all();
 
-// 2. Cargar Nombramientos Vigentes
+// 2. Cargar Nombramientos
 const activeAppointments = await db.select({
   orgId: appointmentTable.organizationId,
   user: {
@@ -24,7 +22,6 @@ const activeAppointments = await db.select({
     email: userTable.email,
   },
   position: positionTypeTable.title,
-  resolution: appointmentTable.resolutionRef
 })
 .from(appointmentTable)
 .innerJoin(userTable, eq(appointmentTable.userId, userTable.id))
@@ -32,96 +29,406 @@ const activeAppointments = await db.select({
 .where(eq(appointmentTable.status, 'activo'))
 .all();
 
-// 3. Ensamblaje del Árbol (Graph)
-interface Node {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  authorities: typeof activeAppointments;
-  children: Node[];
-}
+const getAuthorities = (orgId: string) => activeAppointments.filter(a => a.orgId === orgId);
 
-const nodeMap = new Map<string, Node>();
-const treeRoots: Node[] = [];
+// --- CATEGORIZACIÓN ---
+const centralTypes = ['nacional', 'comite_central', 'comision_politica', 'dns', 'dnsup'];
+const centralOrgs = orgs.filter(o => centralTypes.includes(o.type));
 
-orgs.forEach(o => {
-  nodeMap.set(o.id, {
-    id: o.id,
-    name: o.name,
-    type: o.type,
-    description: o.description,
-    authorities: activeAppointments.filter(a => a.orgId === o.id),
-    children: []
-  });
-});
+const regionales = orgs.filter(o => o.type === 'regional');
+const comunales = orgs.filter(o => o.type === 'comunal' || o.type === 'macro_comuna');
 
-orgs.forEach(o => {
-  const node = nodeMap.get(o.id)!;
-  if (o.parentId && nodeMap.has(o.parentId)) {
-    nodeMap.get(o.parentId)!.children.push(node);
-  } else {
-    treeRoots.push(node);
-  }
-});
+const brigadas = orgs.filter(o => o.type === 'brigada');
+const nucleos = orgs.filter(o => o.type === 'nucleo');
+
 ---
 
-<AppLayout title="Directorio Militante">
-  <div class="max-w-6xl mx-auto">
+<AppLayout title="Directorio | Mapa Orgánico">
+  <div class="max-w-7xl mx-auto px-4 pb-20">
     
-    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-6">
+    <div class="mb-12 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-[var(--color-foreground)] pb-6 gap-6">
       <div>
-        <h1 class="text-4xl md:text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">
-          Directorio<br/>Institucional
+        <h1 class="text-5xl font-black text-[var(--color-foreground)] uppercase tracking-tighter leading-none">
+          Despliegue<br/>Militante
         </h1>
         <p class="text-sm font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest mt-4">
-          Estructura Orgánica y Autoridades Vigentes
+          Mapa Mental y Territorial del Partido
         </p>
       </div>
-      
-      <div class="flex flex-col gap-3 w-full md:w-auto">
-        <div class="relative w-full md:w-80">
-          <input type="text" placeholder="Buscar órgano, nombre o cargo..." class="w-full bg-[var(--color-background)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[var(--color-primary)] transition-all rounded-none placeholder-gray-400" />
-        </div>
-        {canManageOrg && (
-          <a href="/admin/directorio/organos/crear" class="bg-[var(--color-foreground)] text-[var(--color-background)] px-4 py-3 font-black text-xs uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-[0px_0px_0px_0px_var(--color-primary)] transition-all text-center">
-            + CREAR ÓRGANO RAÍZ
-          </a>
-        )}
-      </div>
-    </div>
-
-    <!-- Filtros de Navegación -->
-    <div class="flex flex-wrap gap-4 mb-10 border-b border-[var(--color-border)] pb-4">
-      <a href="#" class="text-sm font-black uppercase tracking-widest bg-[var(--color-foreground)] text-white px-4 py-2 border-2 border-[var(--color-foreground)]">Vista Jerárquica</a>
       {canManageOrg && (
-        <a href="/directorio/padron" class="text-sm font-bold uppercase tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] bg-[var(--color-secondary)] border-2 border-[var(--color-border)] hover:border-[var(--color-foreground)] px-4 py-2 transition-colors">
-          <span class="inline-flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            Ver Padrón
-          </span>
+        <a href="/admin/directorio/organos/crear" class="bg-[var(--color-foreground)] text-[var(--color-background)] px-6 py-4 font-black text-sm uppercase tracking-widest border-2 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-primary)] hover:translate-y-1 hover:translate-x-1 hover:shadow-none transition-all text-center">
+          + ADMINISTRACIÓN AVANZADA
         </a>
       )}
     </div>
 
-    <!-- Árbol Interactivo -->
-    <div class="relative">
-      {treeRoots.length === 0 ? (
-        <div class="p-12 text-center border-4 border-dashed border-[var(--color-border)] bg-[var(--color-secondary)]">
-          <h3 class="text-2xl font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Estructura Vacía</h3>
-          <p class="text-sm font-bold mt-2">El motor institucional no registra órganos creados.</p>
+    <!-- SECCIÓN: CONDUCCIÓN CENTRAL -->
+    <section class="mb-20">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-8 h-8 bg-[var(--color-foreground)]"></div>
+        <h2 class="text-3xl font-black uppercase tracking-tight">Eje de Conducción Central</h2>
+      </div>
+
+      <div class="relative bg-[var(--color-secondary)] border-4 border-[var(--color-foreground)] p-12 shadow-[12px_12px_0px_0px_var(--color-primary)] flex flex-col items-center justify-center min-h-[500px]">
+        <div class="absolute inset-0 z-0 pointer-events-none opacity-20">
+          <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
+             <line x1="50%" y1="50%" x2="20%" y2="20%" stroke="black" stroke-width="4" stroke-dasharray="10 10"/>
+             <line x1="50%" y1="50%" x2="80%" y2="20%" stroke="black" stroke-width="4" stroke-dasharray="10 10"/>
+             <line x1="50%" y1="50%" x2="20%" y2="80%" stroke="black" stroke-width="4" stroke-dasharray="10 10"/>
+             <line x1="50%" y1="50%" x2="80%" y2="80%" stroke="black" stroke-width="4" stroke-dasharray="10 10"/>
+          </svg>
         </div>
-      ) : (
-        <div class="space-y-6">
-          <!-- Línea Guía Vertical (Background) -->
-          <div class="absolute left-4 top-10 bottom-0 w-1 bg-[var(--color-border)] -z-10 hidden md:block"></div>
+
+        <div class="relative z-10 w-full flex flex-col md:flex-row items-center justify-center gap-12">
           
-          {treeRoots.map(rootNode => (
-            <OrgNode node={rootNode} level={0} canManage={canManageOrg} />
-          ))}
+          <div class="flex flex-col gap-12 w-full md:w-1/3 items-end">
+            {centralOrgs.filter(o => o.type === 'comite_central' || o.type === 'comision_politica').map(org => (
+              <a href={`/directorio/organo/${org.id}`} class="block w-full max-w-sm bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-6 hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_var(--color-foreground)] transition-transform">
+                <div class="text-xs font-black bg-[var(--color-foreground)] text-white px-2 py-1 uppercase inline-block mb-3 tracking-widest">{org.type.replace('_', ' ')}</div>
+                <h3 class="text-xl font-black uppercase leading-tight mb-2">{org.name}</h3>
+                <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase">{getAuthorities(org.id).length} Integrantes Vígentes</p>
+              </a>
+            ))}
+          </div>
+
+          <div class="w-full md:w-1/3 flex justify-center z-20">
+            {centralOrgs.filter(o => o.type === 'nacional').map(org => (
+              <a href={`/directorio/organo/${org.id}`} class="block w-full bg-[var(--color-primary)] border-4 border-[var(--color-foreground)] p-8 shadow-[12px_12px_0px_0px_var(--color-foreground)] hover:scale-105 transition-transform text-center">
+                <div class="text-xs font-black bg-[var(--color-foreground)] text-white px-3 py-1 uppercase inline-block mb-4 tracking-widest">Ejecutivo Central</div>
+                <h3 class="text-3xl font-black uppercase leading-tight text-white mb-2">{org.name}</h3>
+                <p class="text-sm font-bold text-white uppercase opacity-80">{getAuthorities(org.id).length} Autoridades Registradas</p>
+              </a>
+            ))}
+          </div>
+
+          <div class="flex flex-col gap-12 w-full md:w-1/3 items-start">
+            {centralOrgs.filter(o => o.type === 'dns' || o.type === 'dnsup').map(org => (
+              <a href={`/directorio/organo/${org.id}`} class="block w-full max-w-sm bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-6 hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_var(--color-foreground)] transition-transform">
+                <div class="text-xs font-black bg-blue-600 text-white px-2 py-1 uppercase inline-block mb-3 tracking-widest">Frente Estudiantil</div>
+                <h3 class="text-xl font-black uppercase leading-tight mb-2">{org.name}</h3>
+                <p class="text-xs font-bold text-[var(--color-muted-foreground)] uppercase">{getAuthorities(org.id).length} Cuadros Vígentes</p>
+              </a>
+            ))}
+          </div>
+
         </div>
-      )}
+      </div>
+    </section>
+
+    <!-- Barra de Controles Generales -->
+    <div class="sticky top-0 z-30 bg-[var(--color-background)] border-b-4 border-[var(--color-foreground)] py-4 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-4">
+        <span class="font-black uppercase tracking-widest text-sm">Vista:</span>
+        <button id="btn-grid" class="view-toggle active bg-[var(--color-foreground)] text-white px-4 py-2 font-black uppercase text-xs border-2 border-[var(--color-foreground)]">Grilla</button>
+        <button id="btn-map" class="view-toggle bg-[var(--color-secondary)] text-[var(--color-foreground)] px-4 py-2 font-black uppercase text-xs border-2 border-[var(--color-foreground)]">Mapa / Grafo</button>
+      </div>
     </div>
+
+    <!-- SECCIÓN: MAPA TERRITORIAL -->
+    <section id="territorial-section">
+      <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-8 h-8 border-4 border-[var(--color-foreground)]"></div>
+          <h2 class="text-3xl font-black uppercase tracking-tight">Despliegue Territorial</h2>
+        </div>
+        <div class="flex gap-4">
+          <select id="region-filter" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] px-4 py-2 font-black uppercase tracking-widest text-sm outline-none cursor-pointer">
+            <option value="all">Todas las Regiones</option>
+            {regionales.map(reg => (
+              <option value={reg.id}>{reg.name}</option>
+            ))}
+          </select>
+          <button onclick="document.getElementById('modal-fundar-comunal').showModal()" class="bg-[var(--color-primary)] text-white px-4 py-2 font-black uppercase tracking-widest text-sm border-4 border-[var(--color-foreground)] shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:translate-y-1 hover:translate-x-1 hover:shadow-none transition-all">
+            + Fundar Comunal
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenedor Dinámico -->
+      <div id="territorial-container" class="layout-grid grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {comunales.length === 0 ? (
+          <div class="col-span-full border-4 border-dashed border-[var(--color-muted-foreground)] p-12 text-center">
+            <p class="font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">No hay comunales constituidos. ¡Sé el primero en fundar uno!</p>
+          </div>
+        ) : (
+          comunales.map(org => {
+            const isMacro = org.type === 'macro_comuna';
+            return (
+              <a href={`/directorio/organo/${org.id}`} data-region={org.parentId} class={`org-card block border-4 border-[var(--color-foreground)] p-4 flex flex-col justify-between aspect-square group transition-all relative ${isMacro ? 'bg-purple-100 hover:bg-purple-200' : 'bg-green-100 hover:bg-green-200'}`}>
+                {isMacro && (
+                  <div class="absolute -top-3 -right-3 bg-purple-600 text-white text-[10px] font-black uppercase px-2 py-1 border-2 border-[var(--color-foreground)] rotate-6 z-10">
+                    Macro
+                  </div>
+                )}
+                <div class="z-10">
+                  <div class="flex justify-between items-start mb-2">
+                    <span class="text-2xl">🔥</span>
+                    <span class="text-[10px] font-black uppercase bg-[var(--color-foreground)] text-white px-1.5 py-0.5">Activo</span>
+                  </div>
+                  <h4 class="font-black uppercase text-sm leading-none mt-2 group-hover:underline decoration-2 underline-offset-2">{org.name}</h4>
+                </div>
+                <p class="text-[9px] font-bold text-[var(--color-muted-foreground)] uppercase mt-4 z-10">
+                  {getAuthorities(org.id).length} Dirigentes
+                </p>
+              </a>
+            )
+          })
+        )}
+      </div>
+    </section>
+
+    <!-- SECCIÓN: MAPA ESTUDIANTIL -->
+    <section id="estudiantil-section" class="mt-20">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-8 h-8 border-4 border-[var(--color-foreground)] bg-blue-600"></div>
+        <h2 class="text-3xl font-black uppercase tracking-tight">Despliegue Estudiantil</h2>
+      </div>
+
+      <!-- UNIVERSITARIOS -->
+      <div class="mb-12">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4 border-b-2 border-blue-200 pb-2">
+          <h3 class="text-xl font-black uppercase tracking-widest text-blue-800">Universitarios (BUS)</h3>
+          <button onclick="document.getElementById('modal-fundar-bus').showModal()" class="bg-blue-600 text-white px-3 py-1 font-black uppercase tracking-widest text-xs border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-px hover:translate-x-px hover:shadow-none transition-all">
+            + Fundar BUS
+          </button>
+        </div>
+
+        <div id="universitarios-container" class="layout-grid grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {brigadas.length === 0 ? (
+            <div class="col-span-full border-2 border-dashed border-blue-300 p-8 text-center bg-[var(--color-secondary)]">
+              <p class="font-black text-blue-400 uppercase tracking-widest text-xs">No hay Brigadas Universitarias Socialistas (BUS) constituidas.</p>
+            </div>
+          ) : (
+            brigadas.map(org => {
+              // Buscar si esta BUS tiene núcleos
+              const orgNucleos = nucleos.filter(n => n.parentId === org.id);
+              return (
+                <a href={`/directorio/organo/${org.id}`} class="org-card block border-4 border-[var(--color-foreground)] p-4 flex flex-col justify-between aspect-square group transition-all relative bg-blue-100 hover:bg-blue-200">
+                  <div class="z-10">
+                    <div class="flex justify-between items-start mb-2">
+                      <span class="text-2xl">🎓</span>
+                      <span class="text-[10px] font-black uppercase bg-blue-600 text-white px-1.5 py-0.5">BUS</span>
+                    </div>
+                    <h4 class="font-black uppercase text-sm leading-none mt-2 group-hover:underline decoration-2 underline-offset-2">{org.name}</h4>
+                  </div>
+                  <div class="mt-4 z-10 flex flex-col gap-1">
+                    <p class="text-[9px] font-bold text-[var(--color-muted-foreground)] uppercase">
+                      {getAuthorities(org.id).length} Militantes
+                    </p>
+                    {orgNucleos.length > 0 && (
+                      <p class="text-[9px] font-black text-blue-600 uppercase">
+                        {orgNucleos.length} Núcleo(s)
+                      </p>
+                    )}
+                  </div>
+                </a>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <!-- SECUNDARIOS -->
+      <div>
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4 border-b-2 border-orange-200 pb-2">
+          <h3 class="text-xl font-black uppercase tracking-widest text-orange-600">Secundarios (Núcleos)</h3>
+          <button onclick="document.getElementById('modal-fundar-nucleo').showModal()" class="bg-orange-500 text-white px-3 py-1 font-black uppercase tracking-widest text-xs border-2 border-[var(--color-foreground)] shadow-[2px_2px_0px_0px_var(--color-foreground)] hover:translate-y-px hover:translate-x-px hover:shadow-none transition-all">
+            + Fundar Núcleo Secundario
+          </button>
+        </div>
+
+        <div id="secundarios-container" class="layout-grid grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {nucleos.filter(n => !brigadas.some(b => b.id === n.parentId)).length === 0 ? (
+            <div class="col-span-full border-2 border-dashed border-orange-300 p-8 text-center bg-[var(--color-secondary)]">
+              <p class="font-black text-orange-400 uppercase tracking-widest text-xs">No hay núcleos de secundarios constituidos.</p>
+            </div>
+          ) : (
+            nucleos.filter(n => !brigadas.some(b => b.id === n.parentId)).map(org => (
+              <a href={`/directorio/organo/${org.id}`} class="org-card block border-4 border-[var(--color-foreground)] p-4 flex flex-col justify-between aspect-square group transition-all relative bg-orange-100 hover:bg-orange-200">
+                <div class="z-10">
+                  <div class="flex justify-between items-start mb-2">
+                    <span class="text-2xl">🎒</span>
+                    <span class="text-[10px] font-black uppercase bg-orange-500 text-white px-1.5 py-0.5">Secundarios</span>
+                  </div>
+                  <h4 class="font-black uppercase text-sm leading-none mt-2 group-hover:underline decoration-2 underline-offset-2">{org.name}</h4>
+                </div>
+                <p class="text-[9px] font-bold text-[var(--color-muted-foreground)] uppercase mt-4 z-10">
+                  {getAuthorities(org.id).length} Militantes
+                </p>
+              </a>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+
+    <!-- Modales Globales de Fundación -->
+    
+    <!-- Modal Fundación Comunal -->
+    <dialog id="modal-fundar-comunal" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-0 shadow-[12px_12px_0px_0px_var(--color-primary)] max-w-lg w-full backdrop:bg-black/80">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-6 border-b-4 border-[var(--color-foreground)] pb-4">
+          <h3 class="text-2xl font-black uppercase tracking-tighter">Fundar Nuevo Comunal</h3>
+          <button type="button" onclick="document.getElementById('modal-fundar-comunal').close()" class="text-3xl font-black text-[var(--color-foreground)] hover:text-[var(--color-primary)] cursor-pointer">&times;</button>
+        </div>
+        
+        <form method="POST" action="/api/solicitudes/cargo" class="space-y-6">
+          <input type="hidden" name="proposedFunctionalArea" value="organico" />
+          
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Nombre del Comunal</label>
+            <input type="text" name="proposedTitle" placeholder="Ej: Comunal Valparaíso" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--color-primary)] transition-colors rounded-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Región (Aprueba la solicitud)</label>
+            <select name="organizationId" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold outline-none cursor-pointer">
+              <option value="" disabled selected>Selecciona la región destino...</option>
+              {regionales.map(reg => (
+                <option value={reg.id}>{reg.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="pt-4 flex gap-4">
+            <button type="submit" class="w-full bg-[var(--color-primary)] text-white font-black uppercase tracking-widest px-6 py-4 border-2 border-[var(--color-foreground)] hover:bg-[var(--color-foreground)] transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+              Enviar Propuesta a Dir. Regional
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Modal Fundación BUS -->
+    <dialog id="modal-fundar-bus" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-0 shadow-[12px_12px_0px_0px_blue] max-w-lg w-full backdrop:bg-black/80">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-6 border-b-4 border-[var(--color-foreground)] pb-4">
+          <h3 class="text-2xl font-black uppercase tracking-tighter text-blue-800">Fundar B.U.S.</h3>
+          <button type="button" onclick="document.getElementById('modal-fundar-bus').close()" class="text-3xl font-black text-[var(--color-foreground)] hover:text-blue-600 cursor-pointer">&times;</button>
+        </div>
+        
+        <form method="POST" action="/api/solicitudes/cargo" class="space-y-6">
+          <input type="hidden" name="proposedFunctionalArea" value="organico" />
+          
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Nombre de la Universidad / BUS</label>
+            <input type="text" name="proposedTitle" placeholder="Ej: BUS Universidad de Chile" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:border-blue-600 transition-colors rounded-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Dirección Nacional (Aprueba la solicitud)</label>
+            <select name="organizationId" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold outline-none cursor-pointer">
+              <option value="" disabled selected>Selecciona la Dirección Estudiantil...</option>
+              {centralOrgs.filter(o => o.type === 'dns' || o.type === 'dnsup').map(org => (
+                <option value={org.id}>{org.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="pt-4 flex gap-4">
+            <button type="submit" class="w-full bg-blue-600 text-white font-black uppercase tracking-widest px-6 py-4 border-2 border-[var(--color-foreground)] hover:bg-blue-800 transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+              Enviar Propuesta
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Modal Fundación Núcleo Secundario -->
+    <dialog id="modal-fundar-nucleo" class="bg-[var(--color-background)] border-4 border-[var(--color-foreground)] p-0 shadow-[12px_12px_0px_0px_orange] max-w-lg w-full backdrop:bg-black/80">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-6 border-b-4 border-[var(--color-foreground)] pb-4">
+          <h3 class="text-2xl font-black uppercase tracking-tighter text-orange-600">Fundar Núcleo Secundario</h3>
+          <button type="button" onclick="document.getElementById('modal-fundar-nucleo').close()" class="text-3xl font-black text-[var(--color-foreground)] hover:text-orange-600 cursor-pointer">&times;</button>
+        </div>
+        
+        <form method="POST" action="/api/solicitudes/cargo" class="space-y-6">
+          <input type="hidden" name="proposedFunctionalArea" value="organico" />
+          
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Nombre del Liceo / Colegio</label>
+            <input type="text" name="proposedTitle" placeholder="Ej: Núcleo Liceo de Aplicación" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold focus:outline-none focus:border-orange-500 transition-colors rounded-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] mb-2">Dirección Nacional (Aprueba la solicitud)</label>
+            <select name="organizationId" required class="w-full bg-[var(--color-secondary)] border-2 border-[var(--color-foreground)] px-4 py-3 text-sm font-bold outline-none cursor-pointer">
+              <option value="" disabled selected>Selecciona la Dirección Secundaria...</option>
+              {centralOrgs.filter(o => o.type === 'dns').map(org => (
+                <option value={org.id}>{org.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="pt-4 flex gap-4">
+            <button type="submit" class="w-full bg-orange-500 text-white font-black uppercase tracking-widest px-6 py-4 border-2 border-[var(--color-foreground)] hover:bg-orange-600 transition-colors shadow-[4px_4px_0px_0px_var(--color-foreground)] active:translate-y-1 active:translate-x-1 active:shadow-none">
+              Enviar Propuesta
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
 
   </div>
 </AppLayout>
+
+<script>
+  // Script para Filtros Dinámicos
+  const regionFilter = document.getElementById('region-filter');
+  const brigadaFilter = document.getElementById('brigada-filter');
+  const terrCards = document.querySelectorAll('#territorial-container .org-card');
+  const estCards = document.querySelectorAll('#estudiantil-container .org-card');
+
+  regionFilter?.addEventListener('change', (e) => {
+    const val = (e.target as HTMLSelectElement).value;
+    terrCards.forEach((c: HTMLElement) => {
+      if (val === 'all' || c.dataset.region === val) c.style.display = 'flex';
+      else c.style.display = 'none';
+    });
+  });
+
+  brigadaFilter?.addEventListener('change', (e) => {
+    const val = (e.target as HTMLSelectElement).value;
+    estCards.forEach((c: HTMLElement) => {
+      if (val === 'all' || c.dataset.brigada === val) c.style.display = 'flex';
+      else c.style.display = 'none';
+    });
+  });
+
+  // Script para Toggle Vista (Grilla vs Mapa)
+  const btnGrid = document.getElementById('btn-grid');
+  const btnMap = document.getElementById('btn-map');
+  const containers = document.querySelectorAll('.layout-grid');
+
+  const setView = (type) => {
+    if (type === 'grid') {
+      btnGrid.classList.add('bg-[var(--color-foreground)]', 'text-white');
+      btnGrid.classList.remove('bg-[var(--color-secondary)]', 'text-[var(--color-foreground)]');
+      
+      btnMap.classList.remove('bg-[var(--color-foreground)]', 'text-white');
+      btnMap.classList.add('bg-[var(--color-secondary)]', 'text-[var(--color-foreground)]');
+      
+      containers.forEach(c => {
+        c.className = 'layout-grid grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4';
+        const cards = c.querySelectorAll('.org-card');
+        cards.forEach(card => card.classList.remove('rounded-full', 'w-32', 'h-32', 'absolute'));
+      });
+    } else {
+      btnMap.classList.add('bg-[var(--color-foreground)]', 'text-white');
+      btnMap.classList.remove('bg-[var(--color-secondary)]', 'text-[var(--color-foreground)]');
+      
+      btnGrid.classList.remove('bg-[var(--color-foreground)]', 'text-white');
+      btnGrid.classList.add('bg-[var(--color-secondary)]', 'text-[var(--color-foreground)]');
+      
+      containers.forEach(c => {
+        // Pseudo layout de mapa/grafo
+        c.className = 'layout-grid flex flex-wrap justify-center gap-8 py-12 relative bg-[var(--color-secondary)] border-4 border-[var(--color-foreground)] shadow-[8px_8px_0px_0px_var(--color-primary)]';
+        const cards = c.querySelectorAll('.org-card');
+        cards.forEach(card => card.classList.add('rounded-full', 'w-32', 'h-32', 'items-center', 'justify-center', 'text-center', 'hover:scale-110'));
+      });
+    }
+  };
+
+  btnGrid?.addEventListener('click', () => setView('grid'));
+  btnMap?.addEventListener('click', () => setView('map'));
+</script>

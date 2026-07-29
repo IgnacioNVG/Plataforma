@@ -1,0 +1,81 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+
+interface Props {
+  error: unknown;
+}
+
+const { error } = Astro.props;
+
+// Convertir el error a un texto legible
+let errorMessage = 'Error desconocido';
+let errorStack = '';
+
+if (error instanceof Error) {
+  errorMessage = error.message;
+  errorStack = error.stack || '';
+} else if (typeof error === 'string') {
+  errorMessage = error;
+} else if (error && typeof error === 'object') {
+  try {
+    errorMessage = JSON.stringify(error, null, 2);
+  } catch (e) {
+    errorMessage = 'Error complejo que no se puede serializar';
+  }
+}
+---
+
+<AppLayout title="Error del Sistema">
+  <div class="max-w-4xl mx-auto h-full flex flex-col justify-center py-12">
+    
+    <div class="bg-red-600 border-4 border-black p-8 relative" style="box-shadow: 8px 8px 0px 0px rgba(0,0,0,1);">
+      <!-- Cinta de Peligro superior -->
+      <div class="absolute top-0 left-0 w-full h-4" style="background: repeating-linear-gradient(45deg, #000, #000 10px, #ffeb3b 10px, #ffeb3b 20px);"></div>
+      
+      <div class="mt-4 flex flex-col md:flex-row items-start gap-6">
+        
+        <div class="shrink-0 text-white flex flex-col items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+            <path d="M12 9v4"></path>
+            <path d="M12 17h.01"></path>
+          </svg>
+          <span class="text-4xl font-black mt-2">500</span>
+        </div>
+
+        <div class="flex-1 text-white">
+          <h1 class="text-3xl font-black uppercase tracking-widest mb-2 shadow-text">Falla Crítica del Sistema</h1>
+          <p class="text-sm font-bold uppercase mb-6 opacity-90">Un componente interno ha colapsado. Se ha generado un registro visual para los ingenieros.</p>
+          
+          <div class="bg-black text-green-400 p-4 border-2 border-white/20 font-mono text-xs overflow-x-auto mb-6">
+            <p class="font-bold text-red-400 mb-2">// DETALLES DEL ERROR:</p>
+            <p class="font-bold mb-4 whitespace-pre-wrap">{errorMessage}</p>
+            
+            {errorStack && (
+              <>
+                <p class="font-bold text-red-400 mb-2 mt-4">// TRAZA DE EJECUCIÓN (STACK TRACE):</p>
+                <p class="whitespace-pre-wrap opacity-70">{errorStack}</p>
+              </>
+            )}
+          </div>
+
+          <div class="flex gap-4">
+            <button onclick="window.history.back()" class="bg-white text-red-600 font-black uppercase text-sm px-6 py-3 border-2 border-black hover:bg-gray-200 transition-colors" style="box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);">
+              &larr; Volver Atrás
+            </button>
+            <button onclick="navigator.clipboard.writeText(document.querySelector('.font-mono').innerText); alert('¡Error copiado! Pégalo en el chat para el soporte.')" class="bg-black text-white font-black uppercase text-sm px-6 py-3 border-2 border-white hover:bg-gray-800 transition-colors">
+              Copiar Informe
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</AppLayout>
+
+<style>
+  .shadow-text {
+    text-shadow: 3px 3px 0px #000;
+  }
+</style>
